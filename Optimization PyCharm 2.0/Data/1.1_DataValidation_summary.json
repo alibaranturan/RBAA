@@ -1,0 +1,62 @@
+{
+  "status": "success",
+  "shape": {
+    "rows": 7074,
+    "cols": 8
+  },
+  "columns": [
+    "Dates",
+    "SPTR5BNK Index",
+    "DJITR Index",
+    "SPXT Index",
+    "XAUUSD Curncy",
+    "XAGUSD Curncy",
+    "LT09TRUU Index",
+    "LD12TRUU Index"
+  ],
+  "date_validation": {
+    "nat_count": 0,
+    "min_date": "1997-05-23",
+    "max_date": "2025-09-05",
+    "is_sorted": true,
+    "duplicate_dates": 0
+  },
+  "non_numeric_total": 0,
+  "stats": {
+    "SPTR5BNK Index": {
+      "min": 77.702,
+      "max": 1341.39,
+      "mean": 474.1371
+    },
+    "DJITR Index": {
+      "min": 9672.0,
+      "max": 115621.3,
+      "mean": 36464.4587
+    },
+    "SPXT Index": {
+      "min": 1095.04,
+      "max": 14401.71,
+      "mean": 3973.9902
+    },
+    "XAUUSD Curncy": {
+      "min": 252.55,
+      "max": 3586.69,
+      "mean": 1106.97
+    },
+    "XAGUSD Curncy": {
+      "min": 4.06,
+      "max": 48.4438,
+      "mean": 16.0855
+    },
+    "LT09TRUU Index": {
+      "min": 142.93,
+      "max": 558.44,
+      "mean": 351.0908
+    },
+    "LD12TRUU Index": {
+      "min": 127.26,
+      "max": 235.46,
+      "mean": 183.6364
+    }
+  }
+}

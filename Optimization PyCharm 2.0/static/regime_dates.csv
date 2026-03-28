@@ -1,0 +1,16 @@
+Regime,Start_Date,End_Date,Duration_Months
+Downturn,2001-06-01,2001-10-31,5
+Goldilocks,2001-11-01,2004-05-31,31
+Downturn,2004-06-01,2006-08-31,27
+Goldilocks,2006-09-01,2007-09-30,13
+Downturn,2007-10-01,2008-10-31,13
+Stagflation,2008-11-01,2009-09-30,11
+Goldilocks,2009-10-01,2011-03-31,18
+Downturn,2011-04-01,2012-02-29,11
+Goldilocks,2012-03-01,2019-10-31,92
+Downturn,2019-11-01,2020-03-31,5
+Stagflation,2020-04-01,2020-05-31,2
+Goldilocks,2020-06-01,2021-03-31,10
+Overheating,2021-04-01,2022-10-31,19
+Downturn,2022-11-01,2024-04-30,18
+Goldilocks,2024-05-01,2025-08-31,16
