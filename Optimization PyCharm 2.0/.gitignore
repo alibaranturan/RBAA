@@ -1,0 +1,22 @@
+# Python virtual environment
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# IDE
+.idea/
+*.iml
+
+# Runtime logs & temp
+Data/rolling_backtest_log.jsonl
+
+# Large generated data outputs (keep source data, ignore outputs)
+Data/Optimization/**/*_output.csv
