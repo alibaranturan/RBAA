@@ -1,0 +1,2218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Regime Based Asset Allocation Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #f5f5f7;
+      --surface:   #ffffff;
+      --surface2:  #f0f0f5;
+      --surface3:  #e8e8ed;
+      --border:    rgba(0,0,0,.10);
+      --text-1:    #1d1d1f;
+      --text-2:    #6e6e73;
+      --text-3:    #8e8e93;
+      --blue:      #0071e3;
+      --blue-soft: #e8f2fd;
+      --green:     #30d158;
+      --green-soft:#e6f9ec;
+      --red:       #ff453a;
+      --red-soft:  #fff0ef;
+      --orange:    #ff9f0a;
+      --yellow:    #ffd60a;
+      --purple:    #bf5af2;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+      --shadow-sm: 0 2px 8px rgba(0,0,0,.06);
+      --shadow-md: 0 4px 24px rgba(0,0,0,.09);
+      --shadow-lg: 0 12px 48px rgba(0,0,0,.12);
+      --font: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+      --transition: .25s cubic-bezier(.4,0,.2,1);
+      --header-bg: rgba(255,255,255,.72);
+    }
+    [data-theme="dark"] {
+      --bg:        #000000;
+      --surface:   #1c1c1e;
+      --surface2:  #2c2c2e;
+      --surface3:  #3a3a3c;
+      --border:    rgba(255,255,255,.1);
+      --text-1:    #f5f5f7;
+      --text-2:    #aeaeb2;
+      --text-3:    #636366;
+      --blue:      #0a84ff;
+      --blue-soft: rgba(10,132,255,.18);
+      --green:     #30d158;
+      --green-soft:rgba(48,209,88,.15);
+      --red:       #ff453a;
+      --red-soft:  rgba(255,69,58,.15);
+      --shadow-sm: 0 2px 8px rgba(0,0,0,.4);
+      --shadow-md: 0 4px 24px rgba(0,0,0,.5);
+      --shadow-lg: 0 12px 48px rgba(0,0,0,.6);
+      --header-bg: rgba(28,28,30,.8);
+    }
+
+    body { font-family: var(--font); background: var(--bg); color: var(--text-1); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+    /* ─── HEADER ─────────────────────────────────────────── */
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--header-bg);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px; height: 56px;
+      display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; justify-self: start; }
+    .bilgi-logo { height: 30px; width: auto; object-fit: contain; transition: var(--transition); flex-shrink: 0; }
+    [data-theme="dark"] .bilgi-logo { filter: brightness(0) invert(1); }
+    .header-title {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      font-size: 17px; font-weight: 700; letter-spacing: -.4px;
+      color: var(--text-1); white-space: nowrap;
+      pointer-events: none; z-index: 1;
+    }
+    .header-end { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+    @media(max-width:860px){ .header-title { display: none; } }
+    .nav-pills { display: flex; gap: 2px; align-items: center; overflow-x: auto; scrollbar-width: none; }
+    .nav-pills::-webkit-scrollbar { display: none; }
+    /* ─── Scrollbar Styling (theme-adaptive) ─────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface2); }
+    ::-webkit-scrollbar-thumb { background: var(--text-3); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-2); }
+    body { scrollbar-width: thin; scrollbar-color: var(--text-3) var(--surface2); }
+
+    .nav-pill {
+      padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;
+      cursor: pointer; transition: var(--transition); color: var(--text-2); border: none; background: transparent;
+      font-family: var(--font); white-space: nowrap; flex-shrink: 0;
+    }
+    .nav-pill.active { background: var(--blue); color: #fff; }
+    .nav-pill:hover:not(.active) { background: var(--surface2); color: var(--text-1); }
+    .header-right { display: flex; align-items: center; gap: 10px; /* legacy – kept for safety */ }
+    .regime-pill {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--green-soft); color: #1a7a35;
+      padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    }
+    [data-theme="dark"] .regime-pill { color: #30d158; }
+    .regime-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.85)} }
+    .theme-toggle {
+      width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--surface2); cursor: pointer; font-size: 15px;
+      display: flex; align-items: center; justify-content: center; transition: var(--transition);
+    }
+    .theme-toggle:hover { transform: scale(1.08); background: var(--surface); }
+
+    /* ─── LANG TOGGLE (Apple segmented pill) ─────────────────── */
+    .lang-toggle {
+      display: flex; align-items: center;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 2px; gap: 0;
+    }
+    .lang-btn {
+      padding: 3px 9px; border-radius: 16px; font-size: 11px; font-weight: 600;
+      cursor: pointer; border: none; background: transparent;
+      color: var(--text-2); font-family: var(--font);
+      transition: background .18s, color .18s, box-shadow .18s;
+      line-height: 1.6; letter-spacing: .01em;
+    }
+    .lang-btn.active {
+      background: var(--surface);
+      color: var(--text-1);
+      box-shadow: 0 1px 4px rgba(0,0,0,.14);
+    }
+    [data-theme="dark"] .lang-btn.active { box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+    .avatar {
+      width: 30px; height: 30px; border-radius: 50%; background: var(--blue);
+      color: #fff; font-size: 12px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+
+    /* ─── LAYOUT ─────────────────────────────────────────── */
+    main { max-width: 1340px; margin: 0 auto; padding: 32px 24px 80px; }
+    .section-label {
+      font-size: 11px; font-weight: 600; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--text-2); margin-bottom: 14px;
+    }
+    .section-gap { margin-bottom: 36px; }
+
+    /* ─── KPI GRID ─────────────────────────────────────────── */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px,1fr)); gap: 12px; }
+    .kpi-card {
+      background: var(--surface); border-radius: var(--radius-lg); padding: 20px 20px 16px;
+      box-shadow: var(--shadow-sm); border: 1px solid var(--border); transition: var(--transition);
+    }
+    .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .kpi-icon-row { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; }
+    .kpi-icon { width: 24px; height: 24px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+    .kpi-label { font-size: 12px; font-weight: 500; color: var(--text-2); }
+    .kpi-value { font-size: 26px; font-weight: 700; letter-spacing: -.4px; line-height: 1; }
+    .kpi-sub { margin-top: 8px; display: flex; align-items: center; gap: 5px; font-size: 12px; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 2px;
+      padding: 2px 7px; border-radius: 8px; font-size: 11px; font-weight: 600;
+    }
+    .badge.up { background: var(--green-soft); color: #1a7a35; }
+    .badge.down { background: var(--red-soft); color: #c0392b; }
+    .badge.neutral { background: var(--blue-soft); color: var(--blue); }
+    .badge.gold { background: rgba(247,201,72,.2); color: #c68400; }
+    [data-theme="dark"] .badge.up { color: #30d158; }
+    [data-theme="dark"] .badge.down { color: #ff6b6b; }
+    [data-theme="dark"] .badge.gold { color: #ffd60a; }
+
+    /* ─── CARD ──────────────────────────────────────────────── */
+    .card { background: var(--surface); border-radius: var(--radius-lg); border: 1px solid var(--border); box-shadow: var(--shadow-sm); overflow: hidden; }
+    .card-head { padding: 20px 22px 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .card-head-text { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+    .card-title { font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--text-1); }
+    .card-sub { font-size: 12px; color: var(--text-2); line-height: 1.4; }
+    .card-body { padding: 16px 22px 22px; }
+    .chart-wrap { position: relative; height: 200px; }
+
+    /* ─── TWO-COL ─────────────────────────────────────────── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    @media(max-width:900px){ .two-col { grid-template-columns:1fr; } .three-col { grid-template-columns:1fr; } }
+
+    /* ─── REGIME TIMELINE ─────────────────────────────────── */
+    .timeline-wrap {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      padding: 22px; box-shadow: var(--shadow-sm);
+    }
+    .timeline-bar { display: flex; border-radius: 8px; overflow: hidden; height: 28px; }
+    .timeline-seg {
+      position: relative; display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 700; color: rgba(255,255,255,.9); overflow: hidden;
+      transition: var(--transition); cursor: default;
+    }
+    .timeline-seg:hover { filter: brightness(1.1); }
+    .timeline-seg span { white-space: nowrap; overflow: hidden; text-overflow: clip; pointer-events: none; }
+    .seg-G { background: #30d158; }
+    .seg-D { background: #ff453a; }
+    .seg-S { background: #ffd60a; color: rgba(0,0,0,.7); }
+    .seg-O { background: #ff9f0a; }
+    .timeline-labels { display: flex; justify-content: space-between; margin-top: 8px; }
+    .timeline-label { font-size: 10px; color: var(--text-3); }
+    .timeline-legend { display: flex; gap: 16px; margin-top: 12px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+    /* ─── RISK PROFILE CARDS ──────────────────────────────── */
+    .risk-card {
+      background: var(--surface); border: 2px solid var(--border);
+      border-radius: var(--radius-lg); padding: 22px 20px; cursor: pointer;
+      transition: var(--transition); position: relative; overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    .risk-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+    .risk-card.selected { border-color: var(--blue); }
+    .risk-card.selected::before { content:''; position:absolute; inset:0; background:var(--blue); opacity:.04; }
+    .risk-tag {
+      display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; padding: 3px 9px; border-radius: 20px; margin-bottom: 10px;
+    }
+    .risk-name { font-size: 19px; font-weight: 700; margin-bottom: 5px; letter-spacing: -.3px; }
+    .risk-desc { font-size: 12px; color: var(--text-2); line-height: 1.5; margin-bottom: 14px; }
+    .ef-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .ef-stat { text-align: center; background: var(--surface2); border-radius: 10px; padding: 8px 6px; }
+    .ef-stat-val { font-size: 14px; font-weight: 700; }
+    .ef-stat-label { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+    .risk-bars { display: flex; flex-direction: column; gap: 8px; }
+    .risk-bar-row { display: flex; flex-direction: column; gap: 3px; }
+    .risk-bar-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-2); }
+    .risk-bar-label span:last-child { font-weight: 600; color: var(--text-1); }
+    .risk-bar-track { height: 4px; border-radius: 2px; background: var(--surface2); overflow: hidden; }
+    .risk-bar-fill { height: 100%; border-radius: 2px; }
+    .check-icon {
+      position: absolute; top: 14px; right: 14px;
+      width: 20px; height: 20px; border-radius: 50%; background: var(--blue);
+      color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center;
+      opacity: 0; transform: scale(.7); transition: var(--transition);
+    }
+    .risk-card.selected .check-icon { opacity: 1; transform: scale(1); }
+    .def .risk-tag { background: var(--green-soft); color: #1a7a35; }
+    .def .risk-bar-fill { background: var(--green); }
+    [data-theme="dark"] .def .risk-tag { color: var(--green); }
+    .neu .risk-tag { background: var(--blue-soft); color: var(--blue); }
+    .neu .risk-bar-fill { background: var(--blue); }
+    .agg .risk-tag { background: var(--red-soft); color: #c0392b; }
+    .agg .risk-bar-fill { background: var(--red); }
+    [data-theme="dark"] .agg .risk-tag { background: rgba(255,69,58,.18); color: #ff6b6b; }
+
+    /* ─── OPTIMIZE BTN ────────────────────────────────────── */
+    .optimize-bar { display: flex; justify-content: flex-end; margin-bottom: 18px; }
+    .btn-primary {
+      background: var(--blue); color: #fff; border: none; border-radius: 12px;
+      padding: 11px 24px; font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: var(--transition); display: flex; align-items: center; gap: 8px;
+      font-family: var(--font); position: relative;
+    }
+    .btn-primary:hover { background: #0077ed; transform: scale(1.02); }
+    .btn-primary:active { transform: scale(.98); }
+    .btn-primary.loading { pointer-events: none; opacity: .7; }
+    .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; display: none; }
+    .btn-primary.loading .spinner { display: block; }
+    .btn-primary.loading .btn-lbl { opacity: 0; position: absolute; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── ALLOCATION ──────────────────────────────────────── */
+    .alloc-inner { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); }
+    .alloc-grid { display: grid; grid-template-columns: 210px 1fr; gap: 32px; align-items: center; }
+    @media(max-width:640px){ .alloc-grid { grid-template-columns:1fr; } }
+    .donut-wrap { position: relative; width: 190px; height: 190px; margin: 0 auto; }
+    .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+    .donut-center-val { font-size: 15px; font-weight: 700; letter-spacing: -.3px; }
+    .donut-center-sub { font-size: 10px; color: var(--text-2); font-weight: 500; margin-top: 2px; }
+    .alloc-list { display: flex; flex-direction: column; gap: 8px; }
+    .alloc-row {
+      display: grid; grid-template-columns: 28px 1fr 70px 52px;
+      align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: var(--radius-sm); transition: var(--transition);
+    }
+    .alloc-row:hover { background: var(--surface2); }
+    .alloc-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+    .alloc-name { font-size: 13px; font-weight: 500; }
+    .alloc-ticker { font-size: 10px; color: var(--text-3); margin-top: 1px; }
+    .alloc-bar-wrap { background: var(--surface2); border-radius: 3px; height: 4px; overflow: hidden; }
+    .alloc-bar-fill { height: 100%; border-radius: 3px; transition: width .7s cubic-bezier(.4,0,.2,1); }
+    .alloc-pct { font-size: 13px; font-weight: 600; text-align: right; }
+
+    /* ─── REGIME SELECTOR ─────────────────────────────────── */
+    .regime-selector { margin-bottom: 22px; }
+    .regime-selector-label {
+      font-size: 11px; font-weight: 600; color: var(--text-3);
+      text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px;
+    }
+    .regime-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    .regime-pill {
+      display: flex; align-items: center; gap: 7px;
+      padding: 9px 16px; border-radius: 12px; font-size: 13px; font-weight: 500;
+      cursor: pointer; border: 1.5px solid var(--border);
+      background: var(--surface2); color: var(--text-2);
+      transition: var(--transition); font-family: var(--font);
+      flex-direction: column; align-items: flex-start; min-width: 120px;
+    }
+    .regime-pill .regime-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; align-self: center; display: inline-block; margin-right: 0; }
+    .regime-pill > span:not(.regime-pill-sub):not(.regime-dot) { display: flex; align-items: center; gap: 6px; }
+    .regime-pill { flex-direction: row; flex-wrap: wrap; }
+    .regime-pill-sub { font-size: 10px; color: var(--text-3); font-weight: 400; width: 100%; padding-left: 14px; }
+    .regime-pill.active {
+      background: var(--surface); border-color: var(--blue);
+      color: var(--text-1); box-shadow: 0 0 0 3px rgba(10,132,255,.12);
+    }
+    .regime-pill.active[data-regime="Goldilocks"]  { border-color: #30d158; box-shadow: 0 0 0 3px rgba(48,209,88,.12); }
+    .regime-pill.active[data-regime="Downturn"]    { border-color: #ff453a; box-shadow: 0 0 0 3px rgba(255,69,58,.12); }
+    .regime-pill.active[data-regime="Stagflation"] { border-color: #ff9f0a; box-shadow: 0 0 0 3px rgba(255,159,10,.12); }
+    .regime-pill.active[data-regime="Overheating"] { border-color: #ff6b3d; box-shadow: 0 0 0 3px rgba(255,107,61,.12); }
+    .regime-pill:hover:not(.active) { color: var(--text-1); background: var(--surface); }
+
+    /* ─── METRIC INFO PANEL ──────────────────────────────── */
+    .metric-info-panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 20px 22px 18px;
+      box-shadow: var(--shadow-sm); margin-bottom: 16px;
+      display: none; position: relative; overflow: hidden;
+    }
+    .metric-info-panel.visible { display: block; }
+    .metric-info-panel::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--panel-accent, var(--blue)); border-radius: 3px 3px 0 0;
+    }
+    .metric-info-close {
+      position: absolute; top: 12px; right: 14px;
+      width: 26px; height: 26px; border-radius: 50%; border: none;
+      background: var(--surface2); color: var(--text-2); cursor: pointer;
+      font-size: 15px; display: flex; align-items: center; justify-content: center;
+      transition: var(--transition); font-family: var(--font);
+    }
+    .metric-info-close:hover { background: var(--surface3); color: var(--text-1); }
+    .metric-info-name { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
+    .metric-info-grid { display: grid; grid-template-columns: 2fr 1.2fr 1.5fr; gap: 20px; }
+    @media(max-width:780px) { .metric-info-grid { grid-template-columns: 1fr; } }
+    .info-sec-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); margin-bottom: 6px; }
+    .info-sec-body { font-size: 13px; color: var(--text-2); line-height: 1.6; }
+    .metric-formula {
+      font-family: 'SF Mono','Monaco','Menlo',monospace; font-size: 12px;
+      background: var(--surface2); border-radius: 8px; padding: 7px 12px;
+      margin: 10px 0 0; color: var(--blue); display: inline-block; letter-spacing: .02em;
+    }
+    .metric-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+    .metric-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 8px; font-size: 11px; font-weight: 700; }
+    .metric-badge.good { background: var(--green-soft); color: #1a7a35; }
+    .metric-badge.bad  { background: var(--red-soft);   color: #c0392b; }
+    [data-theme="dark"] .metric-badge.good { color: var(--green); }
+    [data-theme="dark"] .metric-badge.bad  { color: #ff6b6b; }
+
+    /* ─── COLLAPSIBLE CARDS ───────────────────────────────── */
+    .card-collapse-btn {
+      width: 26px; height: 26px; border-radius: 8px; border: none;
+      background: var(--surface2); color: var(--text-2); cursor: pointer;
+      font-size: 13px; display: inline-flex; align-items: center;
+      justify-content: center; transition: var(--transition); flex-shrink: 0;
+      font-family: var(--font); margin-left: auto;
+    }
+    .card-collapse-btn:hover { background: var(--surface3); color: var(--text-1); }
+    .card.collapsed .card-collapse-btn { transform: rotate(-90deg); }
+    .card-body { transition: max-height .32s ease, opacity .25s ease; max-height: 3000px; overflow: hidden; }
+    .card.collapsed .card-body { max-height: 0 !important; opacity: 0; pointer-events: none; }
+
+    /* ─── DRAG AND DROP ───────────────────────────────────── */
+    [draggable="true"] { user-select: none; }
+    .kpi-card { position: relative; }
+    .drag-handle {
+      position: absolute; top: 10px; right: 10px;
+      cursor: grab; color: var(--text-2); font-size: 15px;
+      opacity: 0; transition: opacity .15s; user-select: none; z-index: 2;
+    }
+    .kpi-card:hover .drag-handle,
+    .risk-card:hover .drag-handle { opacity: 0.8; }
+    .drag-handle:active { cursor: grabbing; }
+    .dragging { opacity: 0.35 !important; transform: scale(0.96) !important; box-shadow: var(--shadow-lg) !important; pointer-events: none; }
+    .drop-before { box-shadow: -3px 0 0 var(--blue) !important; }
+    .drop-after  { box-shadow:  3px 0 0 var(--blue) !important; }
+
+    
+  /* ─── Sentiment section extras ─────────────────────────────── */
+
+  /* ─── METRICS HEATMAP ─────────────────────────────────── */
+    .metric-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+    .metric-tab {
+      padding: 6px 14px; border-radius: 10px; font-size: 13px; font-weight: 500;
+      cursor: pointer; border: none; background: var(--surface2); color: var(--text-2);
+      transition: var(--transition); font-family: var(--font);
+    }
+    .metric-tab.active { background: var(--blue); color: #fff; }
+    .metric-tab:hover:not(.active) { color: var(--text-1); }
+    .heatmap-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
+    .heatmap-table { width: 100%; border-collapse: collapse; }
+    .heatmap-table th, .heatmap-table td { padding: 10px 12px; text-align: center; font-size: 12px; border-bottom: 1px solid var(--border); }
+    .heatmap-table th { font-weight: 600; font-size: 11px; color: var(--text-3); background: var(--surface2); }
+    .heatmap-table td:first-child { text-align: left; font-weight: 500; white-space: nowrap; padding-left: 18px; }
+    .heatmap-table th:first-child { text-align: left; padding-left: 18px; }
+    .heatmap-cell { font-weight: 600; border-radius: 6px; padding: 5px 8px; display: inline-block; min-width: 72px; }
+
+    /* ─── CORRELATION MATRIX ──────────────────────────────── */
+    .corr-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; box-shadow: var(--shadow-sm); overflow-x: auto; }
+    .corr-table { border-collapse: collapse; font-size: 11px; min-width: 560px; }
+    .corr-table th { padding: 6px 8px; font-weight: 600; color: var(--text-2); font-size: 10px; }
+    .corr-table td { padding: 5px 6px; text-align: center; }
+    .corr-cell { display: inline-block; width: 68px; height: 36px; line-height: 36px; border-radius: 8px; font-weight: 600; font-size: 11px; }
+
+    /* ─── MODEL INFO ──────────────────────────────────────── */
+    .model-info {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      padding: 22px 24px; box-shadow: var(--shadow-sm); margin-bottom: 18px;
+      display: flex; align-items: flex-start; gap: 20px;
+    }
+    .model-icon { font-size: 32px; flex-shrink: 0; }
+    .model-title { font-size: 16px; font-weight: 700; margin-bottom: 5px; }
+    .model-desc { font-size: 13px; color: var(--text-2); line-height: 1.6; }
+    .model-stats { display: flex; gap: 20px; margin-top: 12px; }
+    .model-stat { text-align: center; }
+    .model-stat-val { font-size: 18px; font-weight: 700; color: var(--blue); }
+    .model-stat-label { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+
+    /* ─── INFLATION CARD ──────────────────────────────────── */
+    .inflation-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 18px 22px;
+      box-shadow: var(--shadow-sm); display: flex; gap: 32px;
+      align-items: center; margin-bottom: 18px;
+    }
+    .inflation-left { flex-shrink: 0; }
+    .inflation-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); margin-bottom: 6px; }
+    .inflation-current-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+    .inflation-big { font-size: 34px; font-weight: 700; letter-spacing: -1px; }
+    .inflation-year-tag { font-size: 11px; font-weight: 600; color: var(--text-3); }
+    .inflation-meta { font-size: 11px; color: var(--text-3); margin-bottom: 12px; }
+    .inflation-comps { display: flex; gap: 18px; }
+    .infl-comp { display: flex; flex-direction: column; gap: 2px; }
+    .infl-comp-lbl { font-size: 10px; color: var(--text-3); }
+    .infl-comp-val { font-size: 13px; font-weight: 700; }
+    .infl-comp-val.r { color: var(--red); }
+    .infl-comp-val.o { color: var(--orange); }
+    .infl-comp-val.g { color: var(--green); }
+    .inflation-chart { flex: 1; position: relative; min-width: 0; }
+    .infl-chart-title { font-size: 10px; color: var(--text-3); margin-bottom: 6px; font-weight: 500; }
+    .infl-bars-area { position: relative; height: 80px; }
+    .infl-bars { display: flex; align-items: flex-end; gap: 6px; height: 80px; }
+    .infl-col { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; }
+    .infl-bar { border-radius: 4px 4px 0 0; width: 100%; }
+    .infl-pct { font-size: 9px; font-weight: 600; color: var(--text-2); }
+    .infl-yr  { font-size: 9px; color: var(--text-3); }
+    .target-line {
+      position: absolute; left: 0; right: 0; border-top: 1.5px dashed rgba(10,132,255,.55);
+      display: flex; align-items: flex-end; justify-content: flex-end; pointer-events: none;
+    }
+    .target-label { font-size: 9px; font-weight: 600; color: var(--blue); background: var(--surface); padding: 0 3px; line-height: 1; margin-bottom: 2px; }
+
+    /* ─── SPARKLINE TAGS ──────────────────────────────────── */
+    .spark-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .spark-tag { font-size: 11px; font-weight: 500; color: var(--text-2); background: var(--surface2); padding: 2px 8px; border-radius: 6px; }
+
+    /* ─── TRANSITION MATRIX ──────────────────────────────── */
+    .transition-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .transition-table th { padding: 8px 10px; font-size: 11px; font-weight: 600; color: var(--text-3); text-align: center; }
+    .trans-corner { text-align: left !important; font-size: 10px; color: var(--text-3); padding-left: 4px !important; }
+    .transition-table td { padding: 5px 6px; text-align: center; }
+    .trans-from-label { text-align: left !important; padding: 8px 10px !important; white-space: nowrap; }
+    .trans-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; vertical-align: middle; }
+    .trans-current-badge {
+      display: inline-block; margin-left: 6px; font-size: 9px; font-weight: 700;
+      padding: 1px 6px; border-radius: 6px; background: var(--blue-soft); color: var(--blue);
+      vertical-align: middle; text-transform: uppercase; letter-spacing: .04em;
+    }
+    .trans-row-active { background: var(--surface2); border-radius: 8px; }
+    .trans-cell {
+      display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+      width: 78px; height: 48px; border-radius: 10px; gap: 2px;
+    }
+    .trans-diag { background: var(--surface2) !important; }
+    .trans-zero { background: transparent; }
+    .trans-prob { font-size: 14px; font-weight: 700; line-height: 1; }
+    .trans-count { font-size: 10px; color: var(--text-3); }
+    .trans-diag .trans-prob { color: var(--text-3); font-size: 16px; }
+    .trans-regime-label { font-weight: 600; font-size: 11px; }
+    /* Next regime widget */
+    .next-regime-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .next-regime-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+    .next-regime-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    .next-regime-pill {
+      display: flex; align-items: center; gap: 5px;
+      padding: 5px 11px; border-radius: 10px; border: 1.5px solid var(--border);
+      cursor: pointer; transition: var(--transition); font-family: var(--font);
+    }
+    .next-regime-pill:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+    .next-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .next-name { font-size: 12px; font-weight: 600; color: var(--text-1); }
+    .next-prob { font-size: 13px; font-weight: 700; margin-left: 4px; }
+    /* Regime sequence */
+    .regime-seq {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+      padding: 8px 0;
+    }
+    .seq-item {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      cursor: pointer; padding: 6px 5px; border-radius: 8px; transition: var(--transition);
+      min-width: 36px;
+    }
+    .seq-item:hover { background: var(--surface2); }
+    .seq-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .seq-label { font-size: 10px; font-weight: 700; }
+    .seq-months { font-size: 9px; color: var(--text-3); }
+    .seq-arrow { font-size: 11px; color: var(--text-3); padding: 0 1px; align-self: center; }
+    /* Regime counts summary */
+    .regime-count-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; }
+    .regime-count-card {
+      background: var(--surface2); border-radius: 12px; padding: 12px 10px; text-align: center;
+      border: 1.5px solid transparent; cursor: pointer; transition: var(--transition);
+    }
+    .regime-count-card:hover { transform: translateY(-2px); border-color: var(--border); }
+    .regime-count-val { font-size: 22px; font-weight: 700; margin-bottom: 2px; }
+    .regime-count-label { font-size: 10px; color: var(--text-3); font-weight: 500; }
+    .regime-count-sub { font-size: 11px; font-weight: 600; margin-top: 4px; }
+
+    /* ─── TOAST ───────────────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: #1d1d1f; color: #f5f5f7;
+      padding: 12px 22px; border-radius: 14px; font-size: 13px; font-weight: 500;
+      box-shadow: 0 8px 32px rgba(0,0,0,.35); opacity: 0; pointer-events: none;
+      transition: opacity .3s, transform .3s; white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<!-- ─── HEADER ─────────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <img
+      src="https://tbl.bilgi.edu.tr/brand-resources/logotypes/bilgi-30yil/colored/bilgi-logotype-en@2x.png"
+      alt="İstanbul Bilgi Üniversitesi"
+      class="bilgi-logo"
+      id="bilgiLogo"
+      onerror="this.style.display='none';document.getElementById('bilgiFallback').style.display='flex'"
+    />
+    <div id="bilgiFallback" style="display:none;align-items:center;justify-content:center;width:30px;height:30px;background:var(--blue);border-radius:8px;font-size:11px;font-weight:700;color:#fff;letter-spacing:-.5px">BÜ</div>
+  </div>
+  <div class="header-title">Regime Based Asset Allocation Dashboard</div>
+  <div class="header-end">
+    <nav class="nav-pills">
+      <button class="nav-pill active"  onclick="scrollToSection(event,'top')"                data-i18n="nav.overview">Overview</button>
+      <button class="nav-pill"         onclick="scrollToSection(event,'section-transitions')" data-i18n="nav.transitions">Transitions</button>
+      <button class="nav-pill"         onclick="scrollToSection(event,'section-risk')"       data-i18n="nav.risk">Risk</button>
+      <button class="nav-pill"         onclick="scrollToSection(event,'section-frontier')"   data-i18n="nav.frontier">Frontier</button>
+      <a class="nav-pill" href="application.html" style="text-decoration:none;" data-i18n="nav.application">Application</a>
+      <a class="nav-pill" href="howto.html" style="text-decoration:none;">How to Use?</a>
+    </nav>
+    <div class="regime-pill"><div class="regime-dot"></div>Goldilocks</div>
+    <div class="lang-toggle" id="langToggle">
+      <button class="lang-btn active" id="langBtnEN" onclick="setLang('en')">EN</button>
+      <button class="lang-btn"        id="langBtnTR" onclick="setLang('tr')">TR</button>
+    </div>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">🌙</button>
+    <div class="avatar">BT</div>
+  </div>
+</header>
+
+<!-- ─── MAIN ───────────────────────────────────────────────── -->
+<main>
+
+  <!-- KPI -->
+  <div class="section-label" style="margin-bottom:14px" data-i18n="sec.kpi">Market KPIs — Goldilocks Regime (Active since May 2024)</div>
+  <div class="kpi-grid section-gap" id="kpiGrid"></div>
+
+  <!-- CHARTS ROW -->
+  <div class="two-col section-gap">
+    <div class="card">
+      <div class="card-head"><div class="card-title" data-i18n="card.price.title">1yr Price Performance</div><div class="card-sub" data-i18n="card.price.sub">Normalized · Sep 2024 → Sep 2025</div></div>
+      <div class="card-body">
+        <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
+        <div class="spark-row" id="priceSparkRow"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title" data-i18n="card.ef.title">Efficient Frontier</div><div class="card-sub" id="efChartSub" data-i18n="card.ef.sub">Goldilocks regime · 30 portfolios</div></div>
+      <div class="card-body">
+        <div class="chart-wrap"><canvas id="efChart"></canvas></div>
+        <div class="spark-row" id="efLegendRow">
+          <span class="spark-tag" style="color:#30d158">◆ Dengeli — σ 4.90% (hedef %5)</span>
+          <span class="spark-tag" style="color:#0a84ff">◆ Atak — σ 10.16% (hedef %10)</span>
+          <span class="spark-tag" style="color:#ff453a">◆ Agresif — σ 15.56% (hedef %15)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REGIME TIMELINE -->
+  <div class="section-gap">
+    <div class="section-label" data-i18n="sec.timeline">Economic Regime Timeline (2001 – 2025)</div>
+    <div class="timeline-wrap">
+      <div class="timeline-bar" id="timelineBar"></div>
+      <div class="timeline-labels">
+        <span class="timeline-label">2001</span>
+        <span class="timeline-label">2005</span>
+        <span class="timeline-label">2009</span>
+        <span class="timeline-label">2013</span>
+        <span class="timeline-label">2017</span>
+        <span class="timeline-label">2021</span>
+        <span class="timeline-label">2025</span>
+      </div>
+      <div class="timeline-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#30d158"></div>Goldilocks</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff453a"></div>Downturn</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffd60a"></div>Stagflation</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff9f0a"></div>Overheating</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REGIME TRANSITION MATRIX -->
+  <div class="section-gap" id="section-transitions">
+    <div class="section-label" data-i18n="sec.transitions">Regime Transition Analysis</div>
+    <div class="two-col" style="align-items:start">
+
+      <!-- Transition Matrix Card -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title" data-i18n="card.markov.title">Markov Transition Matrix</div>
+          <div class="card-sub" data-i18n="card.markov.sub">Row = from regime, Column = to regime</div>
+        </div>
+        <div class="card-body" style="overflow-x:auto">
+          <div id="transitionMatrixBody"></div>
+          <!-- Regime count summary -->
+          <div class="regime-count-grid" id="regimeCountGrid"></div>
+        </div>
+      </div>
+
+      <!-- Sequence Card -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title" data-i18n="card.regimeseq.title">Historical Regime Sequence</div>
+          <div class="card-sub" data-i18n="card.regimeseq.sub">2001–2025 · 15 periods · Click → select regime</div>
+        </div>
+        <div class="card-body">
+          <div id="regimeSequenceBody"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- REGIME OPTIMIZATION MODEL -->
+  <div class="section-gap" id="section-frontier">
+    <div class="section-label">
+      Regime-Aware Optimization Model
+      <span id="regimeBadge" style="display:inline-block;margin-left:10px;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid #30d15855;background:#30d15822;color:#30d158;vertical-align:middle">Goldilocks</span>
+    </div>
+
+    <div class="model-info">
+      <div class="model-icon">📐</div>
+      <div style="flex:1">
+        <div class="model-title">Regime-Aware Markowitz Mean-Variance Optimization</div>
+        <div class="model-desc">
+          Seçilen piyasa rejimi: <strong>Goldilocks</strong> — Düşük enflasyon, ılımlı büyüme ortamı.
+          Optimizer, <strong>3,749 işlem günü</strong> goldilocks-spesifik veri kullanarak
+          7 varlık üzerinde 30 noktalı etkin sınır hesaplar. Portföyler long-only ve tam yatırımlıdır (ağırlıklar toplamı %100).
+        </div>
+        <div class="model-stats">
+          <div class="model-stat"><div class="model-stat-val">3,749</div><div class="model-stat-label">Rejim Günleri</div></div>
+          <div class="model-stat"><div class="model-stat-val">61.8%</div><div class="model-stat-label">Kapsama Oranı</div></div>
+          <div class="model-stat"><div class="model-stat-val">7</div><div class="model-stat-label">Varlık</div></div>
+          <div class="model-stat"><div class="model-stat-val">30</div><div class="model-stat-label">EF Portföyü</div></div>
+          <div class="model-stat"><div class="model-stat-val">0.284</div><div class="model-stat-label">Min-Var Sharpe</div></div>
+        </div>
+        <div class="next-regime-row" id="nextRegimeRow"></div>
+      </div>
+    </div>
+
+    <!-- US INFLATION CARD -->
+    <div class="inflation-card">
+      <!-- LEFT: summary -->
+      <div class="inflation-left">
+        <div class="inflation-eyebrow">🇺🇸 US Dollar Inflation (CPI YoY)</div>
+        <div class="inflation-current-row">
+          <span class="inflation-big">2.9%</span>
+          <span class="inflation-year-tag">2024 Annual</span>
+        </div>
+        <div class="inflation-meta">Fed target: 2.0% · Source: U.S. Bureau of Labor Statistics</div>
+        <div class="inflation-comps">
+          <div class="infl-comp">
+            <span class="infl-comp-lbl">2022 Peak</span>
+            <span class="infl-comp-val r">6.5%</span>
+          </div>
+          <div class="infl-comp">
+            <span class="infl-comp-lbl">vs. Fed Target</span>
+            <span class="infl-comp-val o">+0.9 pp</span>
+          </div>
+          <div class="infl-comp">
+            <span class="infl-comp-lbl">2025 Estimate</span>
+            <span class="infl-comp-val g">2.8%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: bar chart 2019–2025 -->
+      <div class="inflation-chart">
+        <div class="infl-chart-title">Annual CPI YoY — 2019 to 2025</div>
+        <div class="infl-bars-area">
+          <!-- target line at bottom: 2.0/7.0 × 80px ≈ 23px from bottom -->
+          <div class="target-line" style="bottom:23px">
+            <span class="target-label">2% Fed target</span>
+          </div>
+          <div class="infl-bars">
+            <!-- 2019: 2.3% → 26px  color: orange (slightly above target) -->
+            <div class="infl-col">
+              <span class="infl-pct">2.3%</span>
+              <div class="infl-bar" style="height:26px;background:#ffd60a"></div>
+              <span class="infl-yr">2019</span>
+            </div>
+            <!-- 2020: 1.2% → 14px  color: green (below target, pandemic) -->
+            <div class="infl-col">
+              <span class="infl-pct">1.2%</span>
+              <div class="infl-bar" style="height:14px;background:#30d158"></div>
+              <span class="infl-yr">2020</span>
+            </div>
+            <!-- 2021: 7.0% → 80px  color: red (surge) -->
+            <div class="infl-col">
+              <span class="infl-pct">7.0%</span>
+              <div class="infl-bar" style="height:80px;background:#ff453a"></div>
+              <span class="infl-yr">2021</span>
+            </div>
+            <!-- 2022: 6.5% → 74px  color: red (peak) -->
+            <div class="infl-col">
+              <span class="infl-pct">6.5%</span>
+              <div class="infl-bar" style="height:74px;background:#ff453a"></div>
+              <span class="infl-yr">2022</span>
+            </div>
+            <!-- 2023: 3.4% → 39px  color: orange (cooling) -->
+            <div class="infl-col">
+              <span class="infl-pct">3.4%</span>
+              <div class="infl-bar" style="height:39px;background:#ff9f0a"></div>
+              <span class="infl-yr">2023</span>
+            </div>
+            <!-- 2024: 2.9% → 33px  color: yellow (near target) -->
+            <div class="infl-col">
+              <span class="infl-pct">2.9%</span>
+              <div class="infl-bar" style="height:33px;background:#ffd60a"></div>
+              <span class="infl-yr">2024</span>
+            </div>
+            <!-- 2025: 2.8% est → 32px  color: light green (approaching target) -->
+            <div class="infl-col">
+              <span class="infl-pct">~2.8%</span>
+              <div class="infl-bar" style="height:32px;background:#34c759;opacity:.8"></div>
+              <span class="infl-yr">2025e</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- END INFLATION CARD -->
+
+    <!-- REGIME SELECTOR -->
+    <div class="regime-selector">
+      <div class="regime-selector-label">Optimizasyon Rejimi Seç</div>
+      <div class="regime-pills">
+        <button class="regime-pill active" data-regime="Goldilocks"  onclick="switchRegime('Goldilocks')">
+          <span class="regime-dot" style="background:#30d158"></span>Goldilocks
+          <span class="regime-pill-sub">3,749 gün · 61.8%</span>
+        </button>
+        <button class="regime-pill" data-regime="Downturn"    onclick="switchRegime('Downturn')">
+          <span class="regime-dot" style="background:#ff453a"></span>Downturn
+          <span class="regime-pill-sub">1,648 gün · 27.2%</span>
+        </button>
+        <button class="regime-pill" data-regime="Stagflation" onclick="switchRegime('Stagflation')">
+          <span class="regime-dot" style="background:#ff9f0a"></span>Stagflation
+          <span class="regime-pill-sub">269 gün · 4.4%</span>
+        </button>
+        <button class="regime-pill" data-regime="Overheating" onclick="switchRegime('Overheating')">
+          <span class="regime-dot" style="background:#ff6b3d"></span>Overheating
+          <span class="regime-pill-sub">397 gün · 6.5%</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="three-col" id="riskGrid" style="margin-bottom:18px"></div>
+
+    <div class="optimize-bar">
+      <button class="btn-primary" id="optimizeBtn" onclick="runOptimize()">
+        <div class="spinner" id="spinner"></div>
+        <span class="btn-lbl">⚡ Run Goldilocks Optimization</span>
+      </button>
+    </div>
+
+    <div class="section-label" data-i18n="sec.allocation">Optimized Portfolio Allocation</div>
+    <div class="alloc-inner">
+      <div class="alloc-grid">
+        <div class="donut-wrap">
+          <canvas id="donutChart"></canvas>
+          <div class="donut-center">
+            <div class="donut-center-val" id="donutLabel">Neutral</div>
+            <div class="donut-center-sub">EF Point 13</div>
+          </div>
+        </div>
+        <div class="alloc-list" id="allocList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RISK METRICS HEATMAP -->
+  <div class="section-gap" id="section-risk">
+    <div class="section-label" data-i18n="sec.risk">Risk Metrics by Asset & Regime</div>
+    <div class="metric-tabs" id="metricTabs">
+      <button class="metric-tab active" data-metric="sharpe" onclick="switchMetric('sharpe')">Sharpe Ratio</button>
+      <button class="metric-tab" data-metric="sortino" onclick="switchMetric('sortino')">Sortino Ratio</button>
+      <button class="metric-tab" data-metric="maxdd" onclick="switchMetric('maxdd')">Max Drawdown</button>
+      <button class="metric-tab" data-metric="calmar" onclick="switchMetric('calmar')">Calmar Ratio</button>
+    </div>
+
+    <!-- Metric info panel (toggles on tab click) -->
+    <div class="metric-info-panel" id="metricInfoPanel">
+      <button class="metric-info-close" onclick="hideMetricInfo()" title="Kapat">×</button>
+      <div id="metricInfoContent"></div>
+    </div>
+
+    <div class="heatmap-wrap"><table class="heatmap-table" id="heatmapTable"></table></div>
+  </div>
+
+  <!-- CORRELATION MATRIX -->
+  <div class="section-gap">
+    <div class="section-label" id="corrMatrixTitle">Correlation Matrix — Goldilocks Regime</div>
+    <div class="corr-wrap">
+      <table class="corr-table" id="corrTable"></table>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:12px;font-size:11px;color:var(--text-3)">
+        <div style="width:60px;height:8px;border-radius:4px;background:linear-gradient(90deg,#ff453a,#f0f0f5,#0a84ff)"></div>
+        <span>Strong negative ← neutral → Strong positive</span>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   DATA — All values sourced from Optimization Demo_EF_Stable.xlsm
+   ════════════════════════════════════════════════════════════ */
+
+const ASSET_KEYS   = ['SPTR5BNK','DJITR','SPXT','XAUUSD','XAGUSD','LT09TRUU','LD12TRUU'];
+const ASSET_NAMES  = ['S&P Banks TR','Dow Jones TR','S&P 500 TR','Gold (XAU)','Silver (XAG)','7-10yr Bonds','1-3mo T-Bills'];
+const ASSET_COLORS = ['#ff453a','#ff9f0a','#ffd60a','#f7c948','#c7c7cc','#5ac8fa','#30d158'];
+const REGIME_COLS  = ['Goldilocks','Downturn','Stagflation','Overheating'];
+
+const KPI_DATA = [
+  { label:'Current Regime', icon:'🌿', iconBg:'#e6f9ec', value:'Goldilocks', sub:'Active 16 months', change:'May 2024', dir:'up' },
+  { label:'S&P 500 TR (1yr)', icon:'📈', iconBg:'#e8f2fd', value:'+16.3%', sub:'12,344 → 14,358', change:'+2,013 pts', dir:'up' },
+  { label:'Gold (1yr)', icon:'🥇', iconBg:'rgba(247,201,72,.2)', value:'+43.3%', sub:'$2,503 → $3,587', change:'+$1,083', dir:'up' },
+  { label:'S&P Banks TR (1yr)', icon:'🏦', iconBg:'#fff0ef', value:'+30.5%', sub:'1,004 → 1,310', change:'+306 pts', dir:'up' },
+  { label:'Best Goldilocks Sharpe', icon:'⚡', iconBg:'#e6f9ec', value:'0.590', sub:'LD12TRUU (T-Bills)', change:'Top asset', dir:'neutral' },
+  { label:'Min-Var Portfolio', icon:'⚖️', iconBg:'#e8f2fd', value:'0.284', sub:'Sharpe · EF Point 1', change:'93.6% T-Bills', dir:'neutral' },
+];
+
+const REGIMES = [
+  {type:'D',label:'Downturn',    start:'2001-06-01',end:'2001-10-31',months:5},
+  {type:'G',label:'Goldilocks',  start:'2001-11-01',end:'2004-05-31',months:31},
+  {type:'D',label:'Downturn',    start:'2004-06-01',end:'2006-08-31',months:27},
+  {type:'G',label:'Goldilocks',  start:'2006-09-01',end:'2007-09-30',months:13},
+  {type:'D',label:'Downturn',    start:'2007-10-01',end:'2008-10-31',months:13},
+  {type:'S',label:'Stagflation', start:'2008-11-01',end:'2009-09-30',months:11},
+  {type:'G',label:'Goldilocks',  start:'2009-10-01',end:'2011-03-31',months:18},
+  {type:'D',label:'Downturn',    start:'2011-04-01',end:'2012-02-29',months:11},
+  {type:'G',label:'Goldilocks',  start:'2012-03-01',end:'2019-10-31',months:92},
+  {type:'D',label:'Downturn',    start:'2019-11-01',end:'2020-03-31',months:5},
+  {type:'S',label:'Stagflation', start:'2020-04-01',end:'2020-05-31',months:2},
+  {type:'G',label:'Goldilocks',  start:'2020-06-01',end:'2021-03-31',months:10},
+  {type:'O',label:'Overheating', start:'2021-04-01',end:'2022-10-31',months:19},
+  {type:'D',label:'Downturn',    start:'2022-11-01',end:'2024-04-30',months:18},
+  {type:'G',label:'Goldilocks',  start:'2024-05-01',end:'2025-08-31',months:16},
+];
+
+const RISK_METRICS = {
+  sharpe: [
+    [0.0453,-0.0235,-0.0080,-0.0150],
+    [0.0585,-0.0148, 0.0396, 0.0054],
+    [0.0551,-0.0095, 0.0447,-0.0005],
+    [0.0312, 0.0505, 0.1072,-0.0130],
+    [0.0209, 0.0089, 0.1183,-0.0377],
+    [0.0350, 0.0660, 0.0578,-0.0773],
+    [0.5903, 0.7506, 0.2288, 0.4075],
+  ],
+  sortino: [
+    [0.0630,-0.0282,-0.0122,-0.0245],
+    [0.0773,-0.0169, 0.0552, 0.0075],
+    [0.0717,-0.0109, 0.0597,-0.0007],
+    [0.0418, 0.0665, 0.1643,-0.0179],
+    [0.0169, 0.0238, 0.0242, 0.0162],
+    [0.0513, 0.1012, 0.0994,-0.1172],
+    [0.8251, 0.4733, 0.3961, 0.6034],
+  ],
+  maxdd: [
+    [-0.2850,-0.7503,-0.7170,-0.3525],
+    [-0.3075,-0.5027,-0.3095,-0.2073],
+    [-0.3301,-0.5060,-0.3190,-0.2449],
+    [-0.4128,-0.2807,-0.1249,-0.2089],
+    [-0.6146,-0.7117,-0.2057,-0.3681],
+    [-0.0887,-0.1015,-0.1022,-0.1994],
+    [-0.0011,-0.0017,-0.0002,-0.0002],
+  ],
+  calmar: [
+    [0.3782,-0.0525,-0.0153,-0.1759],
+    [0.2975,-0.0288, 0.0634, 0.0693],
+    [0.2707,-0.0188, 0.0766,-0.0062],
+    [0.1193, 0.1650, 0.2985,-0.1324],
+    [0.0930, 0.0215, 0.3349,-0.3855],
+    [0.2324, 0.2216, 0.0829,-0.4748],
+    [7.9596, 5.0110, 0.8618,22.3639],
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════
+// 4-REGIME EFFICIENT FRONTIER DATA — annualized, 30 pts each
+// Format: [annStd%, annRet%, w_SPTR5BNK, w_DJITR, w_SPXT,
+//          w_XAUUSD, w_XAGUSD, w_LT09TRUU, w_LD12TRUU, sharpe_daily]
+// ═══════════════════════════════════════════════════════════
+const ALL_EF_DATA = {
+  Goldilocks: [
+    [0.393, 1.7742, 0.3841, 1.8736, 0.0, 0.7063, 0.0, 3.4717, 93.5642, 0.284391],
+    [0.8308, 2.2785, 0.9235, 4.1243, 0.0, 1.5731, 0.0, 7.8682, 85.5109, 0.172757],
+    [1.2793, 2.7827, 1.4477, 6.3868, 0.0, 2.446, 0.0, 12.2848, 77.4347, 0.137027],
+    [1.7309, 3.287, 1.688, 9.0534, 0.0, 3.1564, 0.0, 16.7983, 69.3039, 0.119629],
+    [2.1841, 3.7912, 1.9123, 11.7535, 0.0, 3.8873, 0.0, 21.1467, 61.3001, 0.109346],
+    [2.6359, 4.2955, 2.4276, 13.8376, 0.0, 5.2922, 0.0, 25.0487, 53.3939, 0.102656],
+    [3.0868, 4.7997, 3.4465, 15.4782, 0.0, 6.2112, 0.0, 29.5401, 45.324, 0.09795],
+    [3.5396, 5.3039, 3.6787, 18.2146, 0.0, 6.7249, 0.0, 34.3082, 37.0736, 0.094394],
+    [3.9923, 5.8082, 4.2344, 20.3436, 0.0, 7.8885, 0.0, 38.3957, 29.1378, 0.091647],
+    [4.4445, 6.3124, 5.1138, 22.1722, 0.0, 8.7344, 0.0, 42.9818, 20.9977, 0.089469],
+    [4.8973, 6.8167, 5.518, 24.6553, 0.0, 9.3601, 0.0, 47.7035, 12.7632, 0.087683],
+    [5.3501, 7.3209, 6.076, 26.8578, 0.0, 10.2869, 0.0, 52.072, 4.7072, 0.086199],
+    [5.809, 7.8252, 6.7207, 29.3976, 0.0, 11.5752, 0.0, 52.3066, 0.0, 0.084857],
+    [6.3217, 8.3294, 7.0823, 32.8946, 0.0, 13.3984, 0.0, 46.6247, 0.0, 0.083],
+    [6.8865, 8.8336, 7.4438, 36.3916, 0.0, 15.2216, 0.0, 40.9429, 0.0, 0.080806],
+    [7.4915, 9.3379, 7.8054, 39.8885, 0.0, 17.0448, 0.0, 35.2612, 0.0, 0.07852],
+    [8.1278, 9.8421, 8.167, 43.3855, 0.0, 18.868, 0.0, 29.5795, 0.0, 0.076281],
+    [8.7886, 10.3464, 8.5286, 46.8826, 0.0, 20.6912, 0.0, 23.8976, 0.0, 0.07416],
+    [9.4688, 10.8506, 8.8902, 50.3796, 0.0, 22.5144, 0.0, 18.2158, 0.0, 0.072187],
+    [10.1644, 11.3549, 9.2518, 53.8766, 0.0, 24.3376, 0.0, 12.534, 0.0, 0.070372],
+    [10.8725, 11.8591, 9.6134, 57.3735, 0.0, 26.1608, 0.0, 6.8524, 0.0, 0.06871],
+    [11.5909, 12.3633, 9.975, 60.8704, 0.0, 27.984, 0.0, 1.1706, 0.0, 0.067192],
+    [12.3725, 12.8676, 13.2093, 63.5793, 0.0, 23.2114, 0.0, 0.0, 0.0, 0.065515],
+    [13.3135, 13.3718, 17.1891, 66.0835, 0.0, 16.7274, 0.0, 0.0, 0.0, 0.06327],
+    [14.386, 13.8761, 21.1689, 68.5877, 0.0, 10.2434, 0.0, 0.0, 0.0, 0.060761],
+    [15.5627, 14.3803, 25.1489, 71.0919, 0.0, 3.7592, 0.0, 0.0, 0.0, 0.058208],
+    [16.8578, 14.8846, 36.3697, 63.6303, 0.0, 0.0, 0.0, 0.0, 0.0, 0.05562],
+    [18.524, 15.3888, 57.58, 42.42, 0.0, 0.0, 0.0, 0.0, 0.0, 0.052332],
+    [20.5273, 15.893, 78.7903, 21.2097, 0.0, 0.0, 0.0, 0.0, 0.0, 0.048772],
+    [22.7788, 16.3973, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.045346],
+  ],
+  Downturn: [
+    [0.2444, 2.9184, 0.0513, 0.0, 0.0391, 0.0, 0.0093, 0.0, 99.9003, 0.752363],
+    [0.5845, 3.3649, 0.0, 0.0, 0.0, 1.7465, 0.0, 4.3053, 93.9483, 0.362626],
+    [1.0793, 3.8114, 0.0, 0.0, 0.0, 3.4609, 0.0, 8.9209, 87.6182, 0.222449],
+    [1.5904, 4.2579, 0.0, 0.0, 0.0, 5.1753, 0.0, 13.5366, 81.2881, 0.168649],
+    [2.106, 4.7044, 0.0, 0.0, 0.0, 6.8897, 0.0, 18.1523, 74.9579, 0.140717],
+    [2.6234, 5.1508, 0.0, 0.0, 0.0, 8.6042, 0.0, 22.768, 68.6278, 0.123686],
+    [3.1417, 5.5973, 0.0, 0.0, 0.0, 10.3186, 0.0, 27.3837, 62.2977, 0.112233],
+    [3.6605, 6.0438, 0.0, 0.0, 0.0, 12.033, 0.0, 31.9994, 55.9676, 0.104008],
+    [4.1797, 6.4903, 0.0, 0.0, 0.0, 13.7475, 0.0, 36.615, 49.6375, 0.097818],
+    [4.6991, 6.9368, 0.0, 0.0, 0.0, 15.4619, 0.0, 41.2307, 43.3074, 0.092991],
+    [5.2187, 7.3833, 0.0, 0.0, 0.0, 17.1763, 0.0, 45.8464, 36.9773, 0.089122],
+    [5.7384, 7.8298, 0.0, 0.0, 0.0, 18.8908, 0.0, 50.4621, 30.6471, 0.085952],
+    [6.2582, 8.2763, 0.0, 0.0, 0.0, 20.6052, 0.0, 55.0778, 24.317, 0.083308],
+    [6.778, 8.7228, 0.0, 0.0, 0.0, 22.3196, 0.0, 59.6935, 17.9869, 0.081068],
+    [7.2979, 9.1692, 0.0, 0.0, 0.0, 24.0341, 0.0, 64.3091, 11.6568, 0.079147],
+    [7.8178, 9.6157, 0.0, 0.0, 0.0, 25.7485, 0.0, 68.9248, 5.3267, 0.077481],
+    [8.3392, 10.0622, 0.0, 0.0, 0.0, 28.0682, 0.0, 71.9318, 0.0, 0.076009],
+    [8.9293, 10.5087, 0.0, 0.0, 0.0, 33.6015, 0.0, 66.3985, 0.0, 0.074136],
+    [9.6104, 10.9552, 0.0, 0.0, 0.0, 39.1347, 0.0, 60.8653, 0.0, 0.071809],
+    [10.3646, 11.4017, 0.0, 0.0, 0.0, 44.6679, 0.0, 55.3321, 0.0, 0.069297],
+    [11.177, 11.8482, 0.0, 0.0, 0.0, 50.2011, 0.0, 49.7989, 0.0, 0.066777],
+    [12.036, 12.2947, 0.0, 0.0, 0.0, 55.7343, 0.0, 44.2657, 0.0, 0.064348],
+    [12.9322, 12.7412, 0.0, 0.0, 0.0, 61.2675, 0.0, 38.7325, 0.0, 0.062064],
+    [13.8583, 13.1876, 0.0, 0.0, 0.0, 66.8007, 0.0, 33.1993, 0.0, 0.059945],
+    [14.8089, 13.6341, 0.0, 0.0, 0.0, 72.3339, 0.0, 27.6661, 0.0, 0.057997],
+    [15.7795, 14.0806, 0.0, 0.0, 0.0, 77.8672, 0.0, 22.1328, 0.0, 0.056212],
+    [16.7665, 14.5271, 0.0, 0.0, 0.0, 83.4004, 0.0, 16.5996, 0.0, 0.05458],
+    [17.7673, 14.9736, 0.0, 0.0, 0.0, 88.9336, 0.0, 11.0664, 0.0, 0.053089],
+    [18.7797, 15.4201, 0.0, 0.0, 0.0, 94.4668, 0.0, 5.5332, 0.0, 0.051725],
+    [19.8018, 15.8666, 0.0, 0.0, 0.0, 100.0, 0.0, 0.0, 0.0, 0.050475],
+  ],
+  Stagflation: [
+    [0.052, 0.2092, 0.0, 0.0377, 0.0, 0.0151, 0.0, 0.0, 99.9472, 0.253518],
+    [1.1334, 2.6908, 0.0, 0.0, 0.5093, 0.3887, 2.3098, 6.1172, 90.6749, 0.149556],
+    [2.2633, 5.1725, 0.0, 0.0, 0.9871, 0.7512, 4.6229, 12.2616, 81.3773, 0.143967],
+    [3.3935, 7.6541, 0.0, 0.0, 1.4648, 1.1137, 6.936, 18.4059, 72.0797, 0.142084],
+    [4.5239, 10.1358, 0.0, 0.0, 1.9426, 1.476, 9.2491, 24.5501, 62.7823, 0.141139],
+    [5.6543, 12.6174, 0.0, 0.0, 2.4203, 1.8386, 11.5621, 30.6945, 53.4846, 0.14057],
+    [6.7847, 15.0991, 0.0, 0.0, 2.8981, 2.201, 13.8752, 36.8388, 44.187, 0.140191],
+    [7.9151, 17.5807, 0.0, 0.0, 3.3758, 2.5635, 16.1882, 42.9831, 34.8894, 0.13992],
+    [9.0456, 20.0624, 0.0, 0.0, 3.8536, 2.9259, 18.5013, 49.1274, 25.5918, 0.139716],
+    [10.176, 22.544, 0.0, 0.0, 4.3313, 3.2884, 20.8144, 55.2717, 16.2942, 0.139558],
+    [11.3065, 25.0257, 0.0, 0.0, 4.8091, 3.6508, 23.1274, 61.416, 6.9967, 0.139431],
+    [12.4396, 27.5073, 0.0, 0.0, 4.8712, 3.8415, 25.9624, 65.3248, 0.0, 0.139297],
+    [13.63, 29.989, 0.0, 0.0, 3.6696, 3.5101, 30.3844, 62.4359, 0.0, 0.1386],
+    [14.8849, 32.4706, 0.0, 0.0, 2.468, 3.1786, 34.8065, 59.5469, 0.0, 0.137419],
+    [16.1891, 34.9523, 0.0, 0.0, 1.2663, 2.8472, 39.2285, 56.658, 0.0, 0.136004],
+    [17.5318, 37.4339, 0.0, 0.0, 0.0647, 2.5157, 43.6505, 53.7691, 0.0, 0.134505],
+    [18.9093, 39.9156, 0.0, 0.0, 0.0, 2.2382, 47.7391, 50.0227, 0.0, 0.132974],
+    [20.32, 42.3973, 0.0, 0.0, 0.0, 1.9637, 51.8087, 46.2276, 0.0, 0.131436],
+    [21.7573, 44.8789, 0.0, 0.0, 0.0, 1.6893, 55.8783, 42.4324, 0.0, 0.129938],
+    [23.2164, 47.3606, 0.0, 0.0, 0.0, 1.4148, 59.948, 38.6373, 0.0, 0.128505],
+    [24.6934, 49.8422, 0.0, 0.0, 0.0, 1.1403, 64.0176, 34.8421, 0.0, 0.12715],
+    [26.1852, 52.3239, 0.0, 0.0, 0.0, 0.8659, 68.0872, 31.047, 0.0, 0.125876],
+    [27.6895, 54.8055, 0.0, 0.0, 0.0, 0.5914, 72.1568, 27.2518, 0.0, 0.124684],
+    [29.2043, 57.2872, 0.0, 0.0, 0.0, 0.3169, 76.2264, 23.4567, 0.0, 0.123569],
+    [30.7281, 59.7688, 0.0, 0.0, 0.0, 0.0424, 80.2961, 19.6615, 0.0, 0.122529],
+    [32.2596, 62.2505, 0.0, 0.0, 0.0, 0.0, 84.2533, 15.7467, 0.0, 0.121558],
+    [33.7978, 64.7321, 0.0, 0.0, 0.0, 0.0, 88.19, 11.81, 0.0, 0.120651],
+    [35.3418, 67.2138, 0.0, 0.0, 0.0, 0.0, 92.1266, 7.8734, 0.0, 0.119803],
+    [36.8909, 69.6954, 0.0, 0.0, 0.0, 0.0, 96.0633, 3.9367, 0.0, 0.11901],
+    [38.4445, 72.1771, 0.0, 0.0, 0.0, 0.0, 100.0, 0.0, 0.0, 0.118267],
+  ],
+  Overheating: [
+    [0.085, 0.5493, 0.0, 0.0, 0.0, 0.0237, 0.0, 0.0, 99.9763, 0.407265],
+    [0.5774, 0.5798, 0.0, 3.3608, 0.0, 0.0, 0.0, 0.0, 96.6392, 0.063255],
+    [1.1551, 0.6102, 0.0, 6.8122, 0.0, 0.0, 0.0, 0.0, 93.1878, 0.033275],
+    [1.735, 0.6406, 0.0, 10.2636, 0.0, 0.0, 0.0, 0.0, 89.7364, 0.023259],
+    [2.3154, 0.671, 0.0, 13.715, 0.0, 0.0, 0.0, 0.0, 86.285, 0.018256],
+    [2.8961, 0.7015, 0.0, 17.1664, 0.0, 0.0, 0.0, 0.0, 82.8336, 0.015258],
+    [3.4768, 0.7319, 0.0, 20.6178, 0.0, 0.0, 0.0, 0.0, 79.3822, 0.013261],
+    [4.0576, 0.7623, 0.0, 24.0692, 0.0, 0.0, 0.0, 0.0, 75.9308, 0.011835],
+    [4.6384, 0.7928, 0.0, 27.5206, 0.0, 0.0, 0.0, 0.0, 72.4794, 0.010767],
+    [5.2193, 0.8232, 0.0, 30.972, 0.0, 0.0, 0.0, 0.0, 69.028, 0.009936],
+    [5.8001, 0.8536, 0.0, 34.4234, 0.0, 0.0, 0.0, 0.0, 65.5766, 0.009271],
+    [6.381, 0.8841, 0.0, 37.8748, 0.0, 0.0, 0.0, 0.0, 62.1252, 0.008728],
+    [6.9619, 0.9145, 0.0, 41.3262, 0.0, 0.0, 0.0, 0.0, 58.6738, 0.008275],
+    [7.5428, 0.9449, 0.0, 44.7776, 0.0, 0.0, 0.0, 0.0, 55.2224, 0.007892],
+    [8.1237, 0.9753, 0.0, 48.229, 0.0, 0.0, 0.0, 0.0, 51.771, 0.007563],
+    [8.7046, 1.0058, 0.0, 51.6804, 0.0, 0.0, 0.0, 0.0, 48.3196, 0.007279],
+    [9.2855, 1.0362, 0.0, 55.1318, 0.0, 0.0, 0.0, 0.0, 44.8682, 0.00703],
+    [9.8664, 1.0666, 0.0, 58.5832, 0.0, 0.0, 0.0, 0.0, 41.4168, 0.00681],
+    [10.4473, 1.0971, 0.0, 62.0346, 0.0, 0.0, 0.0, 0.0, 37.9654, 0.006615],
+    [11.0282, 1.1275, 0.0, 65.486, 0.0, 0.0, 0.0, 0.0, 34.514, 0.00644],
+    [11.6091, 1.1579, 0.0, 68.9374, 0.0, 0.0, 0.0, 0.0, 31.0626, 0.006283],
+    [12.1901, 1.1884, 0.0, 72.3888, 0.0, 0.0, 0.0, 0.0, 27.6112, 0.006141],
+    [12.771, 1.2188, 0.0, 75.8402, 0.0, 0.0, 0.0, 0.0, 24.1598, 0.006012],
+    [13.3519, 1.2492, 0.0, 79.2916, 0.0, 0.0, 0.0, 0.0, 20.7084, 0.005894],
+    [13.9328, 1.2797, 0.0, 82.743, 0.0, 0.0, 0.0, 0.0, 17.257, 0.005786],
+    [14.5138, 1.3101, 0.0, 86.1944, 0.0, 0.0, 0.0, 0.0, 13.8056, 0.005686],
+    [15.0947, 1.3405, 0.0, 89.6458, 0.0, 0.0, 0.0, 0.0, 10.3542, 0.005594],
+    [15.6756, 1.3709, 0.0, 93.0972, 0.0, 0.0, 0.0, 0.0, 6.9028, 0.005509],
+    [16.2565, 1.4014, 0.0, 96.5486, 0.0, 0.0, 0.0, 0.0, 3.4514, 0.00543],
+    [16.8375, 1.4318, 0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.005357],
+  ],
+};
+
+// 4-REGIME CORRELATION MATRICES (7×7)
+// Assets: SPTR5BNK, DJITR, SPXT, XAUUSD, XAGUSD, LT09TRUU, LD12TRUU
+const ALL_CORR = {
+  Goldilocks: [
+    [  1.0000,  0.7743,  0.7643, -0.1199,  0.0405, -0.3835, -0.0075],
+    [  0.7743,  1.0000,  0.9602, -0.0473,  0.1144, -0.3331, -0.0170],
+    [  0.7643,  0.9602,  1.0000, -0.0205,  0.1427, -0.3271, -0.0138],
+    [ -0.1199, -0.0473, -0.0205,  1.0000,  0.7773,  0.2339,  0.0203],
+    [  0.0405,  0.1144,  0.1427,  0.7773,  1.0000,  0.0971, -0.0138],
+    [ -0.3835, -0.3331, -0.3271,  0.2339,  0.0971,  1.0000,  0.0679],
+    [ -0.0075, -0.0170, -0.0138,  0.0203, -0.0138,  0.0679,  1.0000],
+  ],
+  Downturn: [
+    [  1.0000,  0.7876,  0.7991, -0.1407,  0.0045, -0.2940, -0.1011],
+    [  0.7876,  1.0000,  0.9752, -0.0313,  0.1277, -0.2759, -0.0773],
+    [  0.7991,  0.9752,  1.0000, -0.0264,  0.1357, -0.2788, -0.0897],
+    [ -0.1407, -0.0313, -0.0264,  1.0000,  0.7646,  0.1679,  0.0362],
+    [  0.0045,  0.1277,  0.1357,  0.7646,  1.0000,  0.0434, -0.0130],
+    [ -0.2940, -0.2759, -0.2788,  0.1679,  0.0434,  1.0000,  0.1559],
+    [ -0.1011, -0.0773, -0.0897,  0.0362, -0.0130,  0.1559,  1.0000],
+  ],
+  Stagflation: [
+    [  1.0000,  0.7539,  0.7832,  0.0586,  0.2032, -0.2217, -0.1596],
+    [  0.7539,  1.0000,  0.9867,  0.2277,  0.4040, -0.3432, -0.2482],
+    [  0.7832,  0.9867,  1.0000,  0.2416,  0.4218, -0.3433, -0.2397],
+    [  0.0586,  0.2277,  0.2416,  1.0000,  0.7780,  0.0855, -0.1169],
+    [  0.2032,  0.4040,  0.4218,  0.7780,  1.0000, -0.1077, -0.1334],
+    [ -0.2217, -0.3432, -0.3433,  0.0855, -0.1077,  1.0000,  0.1304],
+    [ -0.1596, -0.2482, -0.2397, -0.1169, -0.1334,  0.1304,  1.0000],
+  ],
+  Overheating: [
+    [  1.0000,  0.8020,  0.7285, -0.0077,  0.1895, -0.1365,  0.0361],
+    [  0.8020,  1.0000,  0.9517,  0.0977,  0.2790,  0.0377,  0.0686],
+    [  0.7285,  0.9517,  1.0000,  0.1100,  0.2912,  0.0653,  0.0390],
+    [ -0.0077,  0.0977,  0.1100,  1.0000,  0.7807,  0.4255, -0.0321],
+    [  0.1895,  0.2790,  0.2912,  0.7807,  1.0000,  0.2746,  0.0230],
+    [ -0.1365,  0.0377,  0.0653,  0.4255,  0.2746,  1.0000,  0.0418],
+    [  0.0361,  0.0686,  0.0390, -0.0321,  0.0230,  0.0418,  1.0000],
+  ],
+};
+
+// SPK target vols: Dengeli 5%, Atak 10%, Agresif 15%
+const TARGET_VOLS = { dengeli: 5.0, atak: 10.0, agresif: 15.0 };
+
+// Regime metadata
+const REGIME_META = {
+  Goldilocks:  { days: 3749, coverage: '61.8%', color: '#30d158', desc: 'Düşük enflasyon, ılımlı büyüme' },
+  Downturn:    { days: 1648, coverage: '27.2%', color: '#ff453a', desc: 'Büyüme yavaşlaması, risk azalışı' },
+  Stagflation: { days: 269,  coverage: '4.4%',  color: '#ff9f0a', desc: 'Yüksek enflasyon, düşük büyüme' },
+  Overheating: { days: 397,  coverage: '6.5%',  color: '#ff6b3d', desc: 'Yüksek büyüme, yüksek enflasyon' },
+};
+
+// ═══════════════════════════════════════════════════════════
+// REGIME TRANSITION MATRIX — Markov probabilities
+// Computed from 15 historical regime periods (2001–2025)
+// Goldilocks: 5 exits → 4×Downturn, 1×Overheating
+// Downturn:   6 exits → 4×Goldilocks, 2×Stagflation
+// Stagflation:2 exits → 2×Goldilocks
+// Overheating:1 exit  → 1×Downturn
+// ═══════════════════════════════════════════════════════════
+const TRANSITION_MATRIX = {
+  Goldilocks:  { Goldilocks: 0.000, Downturn: 0.800, Stagflation: 0.000, Overheating: 0.200 },
+  Downturn:    { Goldilocks: 0.667, Downturn: 0.000, Stagflation: 0.333, Overheating: 0.000 },
+  Stagflation: { Goldilocks: 1.000, Downturn: 0.000, Stagflation: 0.000, Overheating: 0.000 },
+  Overheating: { Goldilocks: 0.000, Downturn: 1.000, Stagflation: 0.000, Overheating: 0.000 },
+};
+
+const TRANSITION_COUNTS = {
+  Goldilocks:  { Goldilocks: 0, Downturn: 4, Stagflation: 0, Overheating: 1 },
+  Downturn:    { Goldilocks: 4, Downturn: 0, Stagflation: 2, Overheating: 0 },
+  Stagflation: { Goldilocks: 2, Downturn: 0, Stagflation: 0, Overheating: 0 },
+  Overheating: { Goldilocks: 0, Downturn: 1, Stagflation: 0, Overheating: 0 },
+};
+
+const REGIME_COLORS = {
+  Goldilocks: '#30d158', Downturn: '#ff453a', Stagflation: '#ff9f0a', Overheating: '#ff6b3d'
+};
+
+// Parse a raw EF array row into a structured object
+function parseEFPoint(r, i) {
+  return {
+    idx: i,
+    stdAnn: r[0], retAnn: r[1], sharpe: r[9],
+    weights: {
+      SPTR5BNK: r[2], DJITR: r[3], SPXT: r[4],
+      XAUUSD:   r[5], XAGUSD: r[6],
+      LT09TRUU: r[7], LD12TRUU: r[8],
+    }
+  };
+}
+
+// Get structured EF array for a given regime
+function getRegimeEF(regime) {
+  return ALL_EF_DATA[regime].map((r, i) => parseEFPoint(r, i));
+}
+
+// Find EF index closest to target annual volatility %
+function findProfileIdx(ef, targetVol) {
+  return ef.reduce((best, pt, i) =>
+    Math.abs(pt.stdAnn - targetVol) < Math.abs(ef[best].stdAnn - targetVol) ? i : best, 0);
+}
+
+// 1yr actual returns (Aug 2024 → Sep 2025) from value sheet
+const ASSET_1YR = { SPTR5BNK:30.47, DJITR:11.16, SPXT:16.30, XAUUSD:43.28, XAGUSD:42.07, LT09TRUU:3.98, LD12TRUU:4.65 };
+// Goldilocks daily vols → annualized
+const ASSET_VOL  = { SPTR5BNK:22.78, DJITR:15.10, SPXT:15.68, XAUUSD:15.54, XAGUSD:26.78, LT09TRUU:5.89, LD12TRUU:0.146 };
+
+/* ════════════════════════════════════════════════════════════
+   THEME
+   ════════════════════════════════════════════════════════════ */
+function isDark() { return document.documentElement.dataset.theme === 'dark'; }
+function applyTheme(dark) {
+  document.documentElement.dataset.theme = dark ? 'dark' : '';
+  document.getElementById('themeToggle').textContent = dark ? '☀️' : '🌙';
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+  updateChartTheme();
+}
+function toggleTheme() { applyTheme(!isDark()); }
+function gridColor()    { return isDark() ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)'; }
+function tickColor()    { return isDark() ? '#636366' : '#8e8e93'; }
+function donutBorder()  { return isDark() ? '#1c1c1e' : '#ffffff'; }
+
+/* ════════════════════════════════════════════════════════════
+   LANGUAGE / i18n
+   ════════════════════════════════════════════════════════════ */
+const LANG_DATA = {
+  en: {
+    'nav.overview':     'Overview',
+    'nav.transitions':  'Transitions',
+    'nav.risk':         'Risk',
+    'nav.frontier':     'Frontier',
+    'nav.application':  'Application',
+
+    'sec.kpi':         'Market KPIs — Goldilocks Regime (Active since May 2024)',
+    'sec.timeline':    'Economic Regime Timeline (2001 – 2025)',
+    'sec.transitions': 'Regime Transition Analysis',
+    'sec.allocation':  'Optimized Portfolio Allocation',
+    'sec.risk':        'Risk Metrics by Asset & Regime',
+
+    'card.price.title':       '1yr Price Performance',
+    'card.price.sub':         'Normalized · Sep 2024 → Sep 2025',
+    'card.ef.title':          'Efficient Frontier',
+    'card.ef.sub':            'Goldilocks regime · 30 portfolios',
+    'card.markov.title':      'Markov Transition Matrix',
+    'card.markov.sub':        'Row = from regime, Column = to regime',
+    'card.regimeseq.title':   'Historical Regime Sequence',
+    'card.regimeseq.sub':     '2001–2025 · 15 periods · Click → select regime',
+
+  },
+  tr: {
+    'nav.overview':    'Genel Bakış',
+    'nav.transitions': 'Geçişler',
+    'nav.risk':        'Risk',
+    'nav.frontier':    'Sınır',
+    'nav.application': 'Uygulama',
+
+    'sec.kpi':         'Piyasa KPI\'ları — Goldilocks Rejimi (Mayıs 2024\'ten beri aktif)',
+    'sec.timeline':    'Ekonomik Rejim Zaman Çizelgesi (2001 – 2025)',
+    'sec.transitions': 'Rejim Geçiş Analizi',
+    'sec.allocation':  'Optimize Edilmiş Portföy Dağılımı',
+    'sec.risk':        'Varlık & Rejime Göre Risk Metrikleri',
+
+    'card.price.title':       '1 Yıllık Fiyat Performansı',
+    'card.price.sub':         'Normalize edilmiş · Eyl 2024 → Eyl 2025',
+    'card.ef.title':          'Etkin Sınır',
+    'card.ef.sub':            'Goldilocks rejimi · 30 portföy',
+    'card.markov.title':      'Markov Geçiş Matrisi',
+    'card.markov.sub':        'Satır = nereden, Sütun = nereye',
+    'card.regimeseq.title':   'Tarihsel Rejim Sırası',
+    'card.regimeseq.sub':     '2001–2025 · 15 dönem · Tıkla → rejim seç',
+
+  }
+};
+
+let _currentLang = 'en';
+
+function t(key) {
+  return (LANG_DATA[_currentLang] || LANG_DATA['en'])[key] || key;
+}
+
+function applyLang(lang) {
+  _currentLang = lang;
+  document.documentElement.lang = lang;
+  localStorage.setItem('lang', lang);
+  // Update toggle buttons
+  document.getElementById('langBtnEN').classList.toggle('active', lang === 'en');
+  document.getElementById('langBtnTR').classList.toggle('active', lang === 'tr');
+  // Update all data-i18n elements
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    const val = LANG_DATA[lang]?.[key];
+    if (val != null) el.textContent = val;
+  });
+}
+
+function setLang(lang) { applyLang(lang); }
+
+// Init language from localStorage
+(function() {
+  const saved = localStorage.getItem('lang') || 'en';
+  _currentLang = saved;
+  document.documentElement.lang = saved;
+  if (saved === 'tr') {
+    // Apply after DOM ready (called in INIT block below)
+  }
+})();
+
+(function() {
+  const saved = localStorage.getItem('theme');
+  const dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.dataset.theme = dark ? 'dark' : '';
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+    if (!localStorage.getItem('theme')) applyTheme(e.matches);
+  });
+})();
+
+/* ════════════════════════════════════════════════════════════
+   STATE
+   ════════════════════════════════════════════════════════════ */
+let selectedRisk   = 'atak';
+let selectedRegime = 'Goldilocks';
+let selectedMetric = 'sharpe';
+let priceChartRef  = null;
+let efChartRef     = null;
+let donutChartRef  = null;
+
+/* ════════════════════════════════════════════════════════════
+   SEEDED PRNG
+   ════════════════════════════════════════════════════════════ */
+function mulberry32(seed) {
+  return function() {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function generatePath(seed, annReturnPct, annVolPct, n) {
+  const rng = mulberry32(seed);
+  const mRet = Math.log(1 + annReturnPct/100) / n;
+  const mVol = (annVolPct/100) / Math.sqrt(n);
+  const path = [100];
+  for (let i = 1; i < n; i++) {
+    const u1 = Math.max(rng(), 1e-10), u2 = rng();
+    const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    path.push(+(path[path.length-1] * Math.exp(mRet + mVol * z)).toFixed(2));
+  }
+  // Brownian bridge correction: scale to hit known endpoint
+  const target = 100 * (1 + annReturnPct/100);
+  const current = path[path.length-1];
+  return path.map((v, i) => +(v * (1 + (target/current - 1) * i/(n-1))).toFixed(2));
+}
+
+
+  /* ════════════════════════════════════════════════════════════
+   BUILD KPIs
+   ════════════════════════════════════════════════════════════ */
+function buildKPIs() {
+  const g = document.getElementById('kpiGrid');
+  g.innerHTML = KPI_DATA.map(k => `
+    <div class="kpi-card">
+      <div class="kpi-icon-row">
+        <div class="kpi-icon" style="background:${k.iconBg}">${k.icon}</div>
+        <div class="kpi-label">${k.label}</div>
+      </div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-sub">
+        <span class="badge ${k.dir}">${k.dir==='up'?'↑':k.dir==='down'?'↓':'◆'} ${k.change}</span>
+        <span style="color:var(--text-3)">${k.sub}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ════════════════════════════════════════════════════════════
+   PRICE CHART
+   ════════════════════════════════════════════════════════════ */
+function buildPriceChart() {
+  const months = 13;
+  const labels = ['Sep\'24','Oct\'24','Nov\'24','Dec\'24','Jan\'25','Feb\'25','Mar\'25','Apr\'25','May\'25','Jun\'25','Jul\'25','Aug\'25','Sep\'25'];
+  const seeds = [101,202,303,404,505,606,707];
+  const datasets = ASSET_KEYS.map((key, i) => ({
+    label: ASSET_NAMES[i],
+    data: generatePath(seeds[i], ASSET_1YR[key], ASSET_VOL[key], months),
+    borderColor: ASSET_COLORS[i],
+    backgroundColor: 'transparent',
+    borderWidth: i < 3 ? 2 : 1.5,
+    pointRadius: 0,
+    tension: 0.4,
+    borderDash: i >= 5 ? [4,3] : [],
+  }));
+
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  priceChartRef = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'bottom',
+          labels: { boxWidth: 10, boxHeight: 2, padding: 8, font: { size: 10 }, color: tickColor() } },
+        tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, color: tickColor(), maxRotation: 0 } },
+        y: { grid: { color: gridColor() }, ticks: { font: { size: 10 }, color: tickColor(), callback: v => v.toFixed(0) },
+             title: { display: true, text: 'Indexed (100 = Sep 2024)', font: { size: 10 }, color: tickColor() } }
+      }
+    }
+  });
+
+  // Spark row
+  const row = document.getElementById('priceSparkRow');
+  row.innerHTML = ASSET_KEYS.map((k, i) => {
+    const r = ASSET_1YR[k];
+    return `<span class="spark-tag" style="color:${ASSET_COLORS[i]}">${ASSET_KEYS[i].replace('TRUU','').replace('USD','/USD')} ${r>=0?'+':''}${r.toFixed(1)}%</span>`;
+  }).join('');
+}
+
+/* ════════════════════════════════════════════════════════════
+   EFFICIENT FRONTIER CHART
+   ════════════════════════════════════════════════════════════ */
+function buildEFChart() {
+  const ef = getRegimeEF(selectedRegime);
+  const efData = ef.map((p, i) => ({ x: p.stdAnn, y: p.retAnn, idx: i }));
+  const profileIdxs = ['dengeli','atak','agresif'].map(r => findProfileIdx(ef, TARGET_VOLS[r]));
+  const profilePts  = ['dengeli','atak','agresif'].map((r, k) => {
+    const p = ef[profileIdxs[k]];
+    return { x: p.stdAnn, y: p.retAnn, label: r };
+  });
+
+  const chartData = {
+    datasets: [
+      {
+        label: 'Efficient Frontier',
+        data: efData,
+        showLine: true, tension: 0.3,
+        backgroundColor: efData.map((_,i) => {
+          const t = i / (efData.length - 1);
+          const r = Math.round(48 + (255-48)*t), g = Math.round(209 + (69-209)*t), b = Math.round(88 + (58-88)*t);
+          return `rgba(${r},${g},${b},0.85)`;
+        }),
+        borderColor: 'rgba(150,150,150,.3)',
+        pointRadius: efData.map((_, i) => profileIdxs.includes(i) ? 0 : 5),
+        pointHoverRadius: 8,
+        borderWidth: 1.5,
+      },
+      {
+        label: 'Risk Profiles',
+        data: profilePts,
+        backgroundColor: ['#30d158','#0a84ff','#ff453a'],
+        borderColor: '#fff',
+        borderWidth: 2,
+        pointRadius: 10,
+        pointStyle: 'rectRot',
+        pointHoverRadius: 13,
+        showLine: false,
+      }
+    ]
+  };
+
+  const chartOptions = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: {
+        label: c => {
+          if (c.datasetIndex === 1) {
+            const n = { dengeli:'Dengeli', atak:'Atak', agresif:'Agresif' };
+            return ` ${n[c.raw.label]||c.raw.label}: σ ${c.parsed.x.toFixed(2)}% / R ${c.parsed.y.toFixed(2)}%`;
+          }
+          const p = ef[c.dataIndex];
+          return ` EF-${c.dataIndex+1}: σ ${p.stdAnn.toFixed(2)}%, R ${p.retAnn.toFixed(2)}%, Sharpe ${p.sharpe.toFixed(3)}`;
+        }
+      }}
+    },
+    scales: {
+      x: { title: { display: true, text: 'Annual Std Dev (%)', font: { size: 11 }, color: tickColor() },
+           grid: { color: gridColor() }, ticks: { color: tickColor(), font: { size: 10 }, callback: v => v.toFixed(1)+'%' } },
+      y: { title: { display: true, text: 'Annual Return (%)', font: { size: 11 }, color: tickColor() },
+           grid: { color: gridColor() }, ticks: { color: tickColor(), font: { size: 10 }, callback: v => v.toFixed(1)+'%' } }
+    }
+  };
+
+  if (efChartRef) {
+    efChartRef.data = chartData;
+    efChartRef.options = chartOptions;
+    efChartRef.update();
+  } else {
+    const ctx = document.getElementById('efChart').getContext('2d');
+    efChartRef = new Chart(ctx, { type: 'scatter', data: chartData, options: chartOptions });
+  }
+
+  // Update subtitle
+  const sub = document.getElementById('efChartSub');
+  if (sub) sub.textContent = `${selectedRegime} regime · 30 portfolios`;
+
+  // Update legend row with actual σ for current regime
+  const legendRow = document.getElementById('efLegendRow');
+  if (legendRow) {
+    const pfColors = { dengeli:'#30d158', atak:'#0a84ff', agresif:'#ff453a' };
+    const pfNames  = { dengeli:'Dengeli', atak:'Atak', agresif:'Agresif' };
+    const pfTargets = { dengeli:5, atak:10, agresif:15 };
+    legendRow.innerHTML = ['dengeli','atak','agresif'].map(p => {
+      const idx = findProfileIdx(ef, TARGET_VOLS[p]);
+      return `<span class="spark-tag" style="color:${pfColors[p]}">◆ ${pfNames[p]} — σ ${ef[idx].stdAnn.toFixed(2)}% (hedef %${pfTargets[p]})</span>`;
+    }).join('');
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   REGIME TIMELINE
+   ════════════════════════════════════════════════════════════ */
+function buildTimeline() {
+  const total = REGIMES.reduce((s, r) => s + r.months, 0);
+  const bar = document.getElementById('timelineBar');
+  bar.innerHTML = REGIMES.map(r => `
+    <div class="timeline-seg seg-${r.type}" style="flex:${r.months};cursor:pointer"
+         title="${r.label}: ${r.start} → ${r.end} (${r.months}mo)"
+         onclick="switchRegime('${r.label}')">
+      <span>${r.months >= 10 ? r.label[0] : ''}</span>
+    </div>
+  `).join('');
+}
+
+/* ════════════════════════════════════════════════════════════
+   TRANSITION MATRIX
+   ════════════════════════════════════════════════════════════ */
+function buildTransitionMatrix() {
+  const regimes = ['Goldilocks','Downturn','Stagflation','Overheating'];
+  const container = document.getElementById('transitionMatrixBody');
+  if (!container) return;
+
+  let html = `<table class="transition-table">
+    <thead><tr>
+      <th class="trans-corner">Geçiş ↓ / Hedef →</th>
+      ${regimes.map(r => `<th><span class="trans-regime-label" style="color:${REGIME_COLORS[r]}">${r}</span></th>`).join('')}
+    </tr></thead>
+    <tbody>`;
+
+  regimes.forEach(fromR => {
+    const isActive = (fromR === selectedRegime);
+    html += `<tr class="${isActive ? 'trans-row-active' : ''}">
+      <td class="trans-from-label">
+        <span class="trans-dot" style="background:${REGIME_COLORS[fromR]}"></span>
+        <strong>${fromR}</strong>
+        ${isActive ? '<span class="trans-current-badge">şu an</span>' : ''}
+      </td>`;
+    regimes.forEach(toR => {
+      const prob  = TRANSITION_MATRIX[fromR][toR];
+      const count = TRANSITION_COUNTS[fromR][toR];
+      const isDiag = (fromR === toR);
+      let bg = 'transparent';
+      if (!isDiag && prob > 0) {
+        const opacity = Math.round(Math.max(0.18, prob * 0.82) * 255).toString(16).padStart(2,'0');
+        bg = `${REGIME_COLORS[toR]}${opacity}`;
+      }
+      const textColor = (!isDiag && prob > 0.4) ? '#fff' : 'var(--text-1)';
+      html += `<td><div class="trans-cell ${isDiag?'trans-diag':prob>0?'trans-active':'trans-zero'}" style="background:${bg}">
+        <span class="trans-prob" style="${!isDiag&&prob>0?'color:'+textColor:'color:var(--text-3)'}">${isDiag ? '—' : (prob*100).toFixed(0)+'%'}</span>
+        ${!isDiag && count > 0 ? `<span class="trans-count">${count}×</span>` : ''}
+      </div></td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+
+  // Regime count summary below matrix
+  const countGrid = document.getElementById('regimeCountGrid');
+  if (countGrid) {
+    const totals = { Goldilocks:3749, Downturn:1648, Stagflation:269, Overheating:397 };
+    const coverage = { Goldilocks:'61.8%', Downturn:'27.2%', Stagflation:'4.4%', Overheating:'6.5%' };
+    const icons = { Goldilocks:'🌿', Downturn:'📉', Stagflation:'🔥', Overheating:'♨️' };
+    countGrid.innerHTML = regimes.map(r => `
+      <div class="regime-count-card" onclick="switchRegime('${r}')"
+           style="${r===selectedRegime?'border-color:'+REGIME_COLORS[r]+';background:'+REGIME_COLORS[r]+'18':''}">
+        <div class="regime-count-val" style="color:${REGIME_COLORS[r]}">${icons[r]}</div>
+        <div class="regime-count-sub" style="color:${REGIME_COLORS[r]}">${r}</div>
+        <div class="regime-count-label">${totals[r].toLocaleString()} gün · ${coverage[r]}</div>
+      </div>`).join('');
+  }
+}
+
+function buildRegimeSequence() {
+  const container = document.getElementById('regimeSequenceBody');
+  if (!container) return;
+  const typeToName = { G:'Goldilocks', D:'Downturn', S:'Stagflation', O:'Overheating' };
+  let html = '<div class="regime-seq">';
+  REGIMES.forEach((r, i) => {
+    const c = REGIME_COLORS[r.label];
+    html += `<div class="seq-item" onclick="switchRegime('${r.label}')" title="${r.label}: ${r.start} → ${r.end} (${r.months}mo)">
+      <div class="seq-dot" style="background:${c}"></div>
+      <div class="seq-label" style="color:${c}">${r.type}</div>
+      <div class="seq-months">${r.months}m</div>
+    </div>`;
+    if (i < REGIMES.length - 1) html += '<div class="seq-arrow">→</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function updateNextRegime() {
+  const container = document.getElementById('nextRegimeRow');
+  if (!container) return;
+  const transitions = TRANSITION_MATRIX[selectedRegime];
+  const nextStates = Object.entries(transitions)
+    .filter(([_, p]) => p > 0)
+    .sort(([_a, a], [_b, b]) => b - a);
+  if (!nextStates.length) { container.innerHTML = ''; return; }
+  container.innerHTML = `
+    <div class="next-regime-label">Olası Sonraki Rejim:</div>
+    <div class="next-regime-pills">
+      ${nextStates.map(([regime, prob]) => `
+        <div class="next-regime-pill" onclick="switchRegime('${regime}')"
+             style="border-color:${REGIME_COLORS[regime]}44;background:${REGIME_COLORS[regime]}18">
+          <span class="next-dot" style="background:${REGIME_COLORS[regime]}"></span>
+          <span class="next-name">${regime}</span>
+          <span class="next-prob" style="color:${REGIME_COLORS[regime]}">${(prob*100).toFixed(0)}%</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+/* ════════════════════════════════════════════════════════════
+   RISK PROFILE CARDS
+   ════════════════════════════════════════════════════════════ */
+// SPK risk profilleri — 4. profil (Temkinli) dağılım gerektirmediği için dahil edilmemiştir.
+// Kaynak: Sermaye Piyasası Kurulu yatırımcı risk sınıflandırması
+const PROFILES = [
+  {
+    id: 'dengeli', cls: 'def',
+    tag: 'SPK Risk 3 — Dengeli',
+    name: 'Dengeli',
+    desc: 'Hedef volatilite %5. Sabit getirili varlıklar ağırlıklı, kısmi hisse ve altın katkılı denge portföyü. Orta düzey risk toleransı.',
+    bars: [
+      { label:'Risk Seviyesi',       val:33,  display:'Orta'    },
+      { label:'Hedef Volatilite',    val:33,  display:'~%5'     },
+      { label:'Çeşitlendirme',       val:86,  display:'Yüksek'  },
+    ],
+  },
+  {
+    id: 'atak', cls: 'neu',
+    tag: 'SPK Risk 4 — Atak',
+    name: 'Atak',
+    desc: 'Hedef volatilite %10. Hisse senedi ağırlıklı, altın katkılı büyüme portföyü. Yüksek risk toleransı, uzun vadeli getiri odaklı.',
+    bars: [
+      { label:'Risk Seviyesi',       val:66,  display:'Yüksek'  },
+      { label:'Hedef Volatilite',    val:66,  display:'~%10'    },
+      { label:'Çeşitlendirme',       val:55,  display:'Orta'    },
+    ],
+  },
+  {
+    id: 'agresif', cls: 'agg',
+    tag: 'SPK Risk 5 — Agresif',
+    name: 'Agresif',
+    desc: 'Hedef volatilite %15. Maksimum büyüme odaklı, yoğun hisse senedi portföyü. Çok yüksek risk toleransı.',
+    bars: [
+      { label:'Risk Seviyesi',       val:100, display:'Çok Yüksek' },
+      { label:'Hedef Volatilite',    val:100, display:'~%15'       },
+      { label:'Çeşitlendirme',       val:18,  display:'Düşük'      },
+    ],
+  },
+];
+
+function buildRiskCards() {
+  const ef = getRegimeEF(selectedRegime);
+  const g = document.getElementById('riskGrid');
+  // Re-init collapse buttons and drag handles after re-render
+  const reinitCards = () => {
+    initCollapsibleCards();
+    makeDraggableGrid(document.getElementById('riskGrid'));
+  };
+  g.innerHTML = PROFILES.map(p => {
+    const idx  = findProfileIdx(ef, TARGET_VOLS[p.id]);
+    const efPt = ef[idx];
+    return `
+    <div class="risk-card ${p.cls} ${p.id===selectedRisk?'selected':''}" onclick="selectRisk('${p.id}')">
+      <div class="check-icon">✓</div>
+      <div class="risk-tag">${p.tag}</div>
+      <div class="risk-name">${p.name}</div>
+      <div class="risk-desc">${p.desc}</div>
+      <div class="ef-stats">
+        <div class="ef-stat">
+          <div class="ef-stat-val">${efPt.retAnn.toFixed(1)}%</div>
+          <div class="ef-stat-label">Ann. Return</div>
+        </div>
+        <div class="ef-stat">
+          <div class="ef-stat-val">${efPt.stdAnn.toFixed(2)}%</div>
+          <div class="ef-stat-label">Ann. StdDev</div>
+        </div>
+        <div class="ef-stat">
+          <div class="ef-stat-val">${efPt.sharpe.toFixed(3)}</div>
+          <div class="ef-stat-label">Sharpe</div>
+        </div>
+      </div>
+      <div class="risk-bars">
+        ${p.bars.map(b => `
+          <div class="risk-bar-row">
+            <div class="risk-bar-label"><span>${b.label}</span><span>${b.display}</span></div>
+            <div class="risk-bar-track"><div class="risk-bar-fill" style="width:${b.val}%"></div></div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  requestAnimationFrame(reinitCards);
+}
+
+function selectRisk(id) {
+  selectedRisk = id;
+  buildRiskCards();
+  buildAllocation(id);
+  const labels = { dengeli:'Dengeli', atak:'Atak', agresif:'Agresif' };
+  showToast(`${labels[id] || id} profili seçildi ✓`);
+}
+
+/* ════════════════════════════════════════════════════════════
+   ALLOCATION DONUT
+   ════════════════════════════════════════════════════════════ */
+function buildAllocation(profile) {
+  const ef    = getRegimeEF(selectedRegime);
+  const idx   = findProfileIdx(ef, TARGET_VOLS[profile]);
+  const efPt  = ef[idx];
+  const weights = efPt.weights;
+  const labels  = ASSET_KEYS.filter(k => weights[k] > 0.05);
+  const values  = labels.map(k => weights[k]);
+  const colors  = labels.map(k => ASSET_COLORS[ASSET_KEYS.indexOf(k)]);
+  const names   = labels.map(k => ASSET_NAMES[ASSET_KEYS.indexOf(k)]);
+
+  const profileLabel = { dengeli:'Dengeli', atak:'Atak', agresif:'Agresif' };
+  document.getElementById('donutLabel').textContent = profileLabel[profile];
+  document.querySelector('.donut-center-sub').textContent = `EF Pt ${idx+1} — σ ${efPt.stdAnn.toFixed(2)}%`;
+
+  if (donutChartRef) {
+    donutChartRef.data.labels = labels;
+    donutChartRef.data.datasets[0].data = values;
+    donutChartRef.data.datasets[0].backgroundColor = colors;
+    donutChartRef.data.datasets[0].borderColor = donutBorder();
+    donutChartRef.update();
+  } else {
+    const ctx = document.getElementById('donutChart').getContext('2d');
+    donutChartRef = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 3, borderColor: donutBorder(), hoverOffset: 6 }] },
+      options: { cutout:'70%', plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed.toFixed(1)}%`}} }, animation:{animateRotate:true,duration:700} }
+    });
+  }
+
+  const list = document.getElementById('allocList');
+  list.innerHTML = ASSET_KEYS.map((k, i) => {
+    const w = weights[k];
+    if (w < 0.05) return '';
+    return `
+      <div class="alloc-row">
+        <div class="alloc-dot" style="background:${ASSET_COLORS[i]}"></div>
+        <div>
+          <div class="alloc-name">${ASSET_NAMES[i]}</div>
+          <div class="alloc-ticker">${k}</div>
+        </div>
+        <div class="alloc-bar-wrap"><div class="alloc-bar-fill" style="width:${w}%;background:${ASSET_COLORS[i]}"></div></div>
+        <div class="alloc-pct">${w.toFixed(1)}%</div>
+      </div>`;
+  }).join('');
+}
+
+/* ════════════════════════════════════════════════════════════
+   METRIC INFO PANEL
+   ════════════════════════════════════════════════════════════ */
+const METRIC_INFO = {
+  sharpe: {
+    name: 'Sharpe Ratio', accent: '#0a84ff',
+    formula: '(R_p − R_f) / σ_p',
+    desc: 'Birim <strong>toplam risk</strong> (standart sapma) başına elde edilen fazla getiriyi ölçer. Risk-free rate üzerindeki getirinin volatiliteye oranıdır. Hem yukarı hem aşağı yönlü oynaklığı cezalandırır.',
+    interp: 'Yüksek değer tercih edilir.<br>↑ >1.0 — iyi<br>↑ >2.0 — çok iyi<br>↓ <0 — kötü (negatif fazla getiri)',
+    use: 'Farklı varlık sınıflarını ve portföyleri <strong>risk-adjusted getiri</strong> açısından karşılaştırmak için standart metrik. Uzun vadeli kıyaslamada en yaygın kullanılan ölçüttür.',
+    good: '> 1.0', bad: '< 0',
+  },
+  sortino: {
+    name: 'Sortino Ratio', accent: '#30d158',
+    formula: '(R_p − R_f) / σ_downside',
+    desc: 'Sharpe\'a benzer ancak yalnızca <strong>negatif volatiliteyi</strong> (downside deviation) cezalandırır. Pozitif oynaklığı "kötü" risk olarak saymaz — bu nedenle asimetrik getiri dağılımlarında daha adil bir ölçüttür.',
+    interp: 'Yüksek değer tercih edilir.<br>↑ Sharpe > Sortino ise çift yönlü volatilite yüksektir<br>↑ Sortino > Sharpe ise pozitif sürprizler baskındır',
+    use: 'Yüksek volatilite ancak nadiren negatif getiri olan varlıklarda (emtialar, büyüme hisseleri, kripto) Sharpe\'dan daha anlamlı sonuç verir.',
+    good: '> 1.0', bad: '< 0',
+  },
+  maxdd: {
+    name: 'Maximum Drawdown', accent: '#ff453a',
+    formula: '(P_trough − P_peak) / P_peak',
+    desc: 'Herhangi bir zirve noktasından sonraki en derin dip noktasına kadar gerçekleşen en büyük <strong>kümülatif kayıp</strong>tır. "En kötü senaryo"yu somut olarak gösterir.',
+    interp: 'Sıfıra yakın olması tercih edilir.<br>↑ > −10%: düşük risk<br>↓ −20% ila −50%: orta-yüksek risk<br>↓ < −50%: çok yüksek risk, psikolojik eşik aşılır',
+    use: 'Yatırımcının <strong>psikolojik dayanıklılık eşiğini</strong> test etmek için kritik. Portföy yöneticileri genellikle önceden drawdown limiti belirler (örn. max −20%).',
+    good: '> −20%', bad: '< −50%',
+  },
+  calmar: {
+    name: 'Calmar Ratio', accent: '#ff9f0a',
+    formula: 'Yıllık Getiri / |Max Drawdown|',
+    desc: 'Yıllık getirinin maksimum drawdown\'ın mutlak değerine oranıdır. Uzun vadeli <strong>risk-adjusted performansı</strong> tek bir sayıyla özetler. Hedge fund endüstrisinde 3 yıllık veri üzerinden hesaplanır.',
+    interp: 'Yüksek değer tercih edilir.<br>↑ >1.0: kabul edilebilir<br>↑ >3.0: iyi<br>↑ >5.0: mükemmel<br>↓ <0: negatif getiri',
+    use: 'CTA ve hedge fund değerlendirmesinde standart metrik. Yıllık getiri ile maksimum kayıp riskini tek bir oranda dengeler. T-Bills için çok yüksek değer almak normaldir.',
+    good: '> 1.0', bad: '< 0',
+  },
+};
+
+let metricInfoVisible = false;
+
+function showMetricInfo(metric) {
+  const info = METRIC_INFO[metric];
+  const panel = document.getElementById('metricInfoPanel');
+  const content = document.getElementById('metricInfoContent');
+  if (!panel || !content || !info) return;
+  if (metricInfoVisible && panel.dataset.metric === metric) { hideMetricInfo(); return; }
+  panel.dataset.metric = metric;
+  panel.style.setProperty('--panel-accent', info.accent);
+  content.innerHTML = `
+    <div class="metric-info-name" style="color:${info.accent}">${info.name}</div>
+    <div class="metric-info-grid">
+      <div>
+        <div class="info-sec-title">Açıklama</div>
+        <div class="info-sec-body">${info.desc}</div>
+        <div class="metric-formula">${info.formula}</div>
+      </div>
+      <div>
+        <div class="info-sec-title">Yorum</div>
+        <div class="info-sec-body">${info.interp}</div>
+        <div class="metric-badges">
+          <span class="metric-badge good">✓ İyi: ${info.good}</span>
+          <span class="metric-badge bad">✗ Zayıf: ${info.bad}</span>
+        </div>
+      </div>
+      <div>
+        <div class="info-sec-title">Kullanım Alanı</div>
+        <div class="info-sec-body">${info.use}</div>
+      </div>
+    </div>`;
+  panel.classList.add('visible');
+  metricInfoVisible = true;
+}
+
+function hideMetricInfo() {
+  const panel = document.getElementById('metricInfoPanel');
+  if (panel) { panel.classList.remove('visible'); panel.dataset.metric = ''; }
+  metricInfoVisible = false;
+}
+
+/* ════════════════════════════════════════════════════════════
+   COLLAPSIBLE CARDS  (JS-animated, works with canvas/charts)
+   ════════════════════════════════════════════════════════════ */
+function collapseCard(card) {
+  const body = card.querySelector('.card-body');
+  if (!body) return;
+  if (card.classList.contains('collapsed')) {
+    // Expand
+    card.classList.remove('collapsed');
+    body.style.overflow = 'hidden';
+    body.style.transition = 'max-height .32s ease, opacity .25s ease';
+    body.style.maxHeight  = body.scrollHeight + 'px';
+    body.style.opacity    = '1';
+    body.addEventListener('transitionend', function h() {
+      body.style.maxHeight = '';
+      body.style.overflow  = '';
+      body.style.transition = '';
+      body.removeEventListener('transitionend', h);
+    });
+  } else {
+    // Collapse — first snapshot current height
+    body.style.overflow   = 'hidden';
+    body.style.maxHeight  = body.scrollHeight + 'px';
+    body.style.transition = '';
+    body.style.opacity    = '1';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        body.style.transition = 'max-height .32s ease, opacity .25s ease';
+        body.style.maxHeight  = '0px';
+        body.style.opacity    = '0';
+        card.classList.add('collapsed');
+      });
+    });
+  }
+}
+
+function initCollapsibleCards() {
+  document.querySelectorAll('.card').forEach(card => {
+    const head = card.querySelector('.card-head');
+    if (!head) return;
+
+    // ── Wrap title + sub in .card-head-text for vertical stacking ──────────
+    if (!head.querySelector('.card-head-text')) {
+      // Case A: title is a direct child of card-head
+      const titleEl = head.querySelector(':scope > .card-title');
+      const subEl   = head.querySelector(':scope > .card-sub');
+      if (titleEl) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'card-head-text';
+        head.insertBefore(wrapper, titleEl);
+        wrapper.appendChild(titleEl);
+        if (subEl) wrapper.appendChild(subEl);
+      }
+      // Case B: anonymous div wrapper already contains title+sub
+      const anonDiv = Array.from(head.children).find(
+        ch => !ch.classList.contains('card-collapse-btn') &&
+              !ch.classList.contains('card-head-text') &&
+              ch.querySelector('.card-title')
+      );
+      if (anonDiv && !anonDiv.classList.length) {
+        anonDiv.className = 'card-head-text';
+      }
+    }
+
+    if (head.querySelector('.card-collapse-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'card-collapse-btn';
+    btn.innerHTML = '▾';
+    btn.title = 'Daralt / Genişlet';
+    btn.addEventListener('click', e => { e.stopPropagation(); collapseCard(card); });
+    head.appendChild(btn);
+  });
+}
+
+/* ════════════════════════════════════════════════════════════
+   DRAG-AND-DROP GRID  (pointer-events based, works everywhere)
+   ════════════════════════════════════════════════════════════ */
+function makeDraggableGrid(gridEl) {
+  if (!gridEl) return;
+
+  let dragSrc = null, ghost = null, dropTarget = null, dropBefore = true;
+
+  function addHandles() {
+    Array.from(gridEl.children).forEach(item => {
+      if (item.querySelector('.drag-handle')) return;
+      const h = document.createElement('span');
+      h.className = 'drag-handle';
+      h.innerHTML = '⠿';
+      h.title = 'Sürükle';
+      h.addEventListener('pointerdown', startDrag);
+      item.appendChild(h);
+    });
+  }
+
+  function startDrag(e) {
+    e.preventDefault();
+    dragSrc = e.currentTarget.parentElement;
+    if (!dragSrc) return;
+
+    const r = dragSrc.getBoundingClientRect();
+    ghost = dragSrc.cloneNode(true);
+    Object.assign(ghost.style, {
+      position: 'fixed', left: r.left + 'px', top: r.top + 'px',
+      width: r.width + 'px', height: r.height + 'px',
+      opacity: '0.85', pointerEvents: 'none', zIndex: '9999',
+      boxShadow: '0 16px 48px rgba(0,0,0,.25)', borderRadius: '20px',
+      transform: 'scale(1.03)', transition: 'transform .1s',
+    });
+    document.body.appendChild(ghost);
+    dragSrc.style.opacity = '0.3';
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup',   onUp);
+  }
+
+  function onMove(e) {
+    if (!ghost) return;
+    const r = ghost.getBoundingClientRect();
+    ghost.style.left = (parseFloat(ghost.style.left) + e.movementX) + 'px';
+    ghost.style.top  = (parseFloat(ghost.style.top)  + e.movementY) + 'px';
+
+    ghost.style.display = 'none';
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    ghost.style.display = '';
+
+    clearIndicators();
+    const target = el && el.closest
+      ? (gridEl.contains(el) ? el.closest('[class*="-card"]') : null)
+      : null;
+
+    if (target && target !== dragSrc && target.parentElement === gridEl) {
+      const tr = target.getBoundingClientRect();
+      dropBefore = e.clientX < tr.left + tr.width / 2;
+      dropTarget = target;
+      target.classList.add(dropBefore ? 'drop-before' : 'drop-after');
+    } else {
+      dropTarget = null;
+    }
+  }
+
+  function onUp() {
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup',   onUp);
+    if (ghost) { ghost.remove(); ghost = null; }
+    if (dragSrc) { dragSrc.style.opacity = ''; }
+    clearIndicators();
+
+    if (dragSrc && dropTarget) {
+      gridEl.insertBefore(dragSrc, dropBefore ? dropTarget : dropTarget.nextSibling);
+    }
+    dragSrc = null; dropTarget = null;
+    setTimeout(addHandles, 0);
+  }
+
+  function clearIndicators() {
+    Array.from(gridEl.children).forEach(c => c.classList.remove('drop-before','drop-after'));
+  }
+
+  addHandles();
+}
+
+/* ════════════════════════════════════════════════════════════
+   RISK METRICS HEATMAP
+   ════════════════════════════════════════════════════════════ */
+function metricCellColor(v, metric) {
+  let norm;
+  if (metric === 'maxdd') {
+    norm = (v - (-0.75)) / (0 - (-0.75));
+  } else if (metric === 'calmar') {
+    norm = (v - (-0.5)) / (8 - (-0.5));
+  } else if (metric === 'sharpe') {
+    norm = (v - (-0.08)) / (0.8 - (-0.08));
+  } else {
+    norm = (v - (-0.15)) / (0.85 - (-0.15));
+  }
+  norm = Math.max(0, Math.min(1, norm));
+  const alpha = Math.abs(norm - 0.5) * 1.4;
+  if (norm >= 0.5) return `rgba(48,209,88,${alpha.toFixed(2)})`;
+  return `rgba(255,69,58,${alpha.toFixed(2)})`;
+}
+
+function buildMetricHeatmap(metric) {
+  const data = RISK_METRICS[metric];
+  const fmt = (v) => {
+    if (metric === 'maxdd') return (v*100).toFixed(1)+'%';
+    if (metric === 'calmar' && Math.abs(v) > 9) return v.toFixed(1);
+    return v.toFixed(3);
+  };
+  const table = document.getElementById('heatmapTable');
+  table.innerHTML = `
+    <thead><tr>
+      <th>Asset</th>
+      ${REGIME_COLS.map(r => `<th>${r}</th>`).join('')}
+    </tr></thead>
+    <tbody>
+    ${ASSET_NAMES.map((name, i) => `
+      <tr>
+        <td><span style="font-size:10px;margin-right:6px;color:${ASSET_COLORS[i]}">●</span>${name}</td>
+        ${data[i].map(v => `
+          <td><span class="heatmap-cell" style="background:${metricCellColor(v, metric)}">${fmt(v)}</span></td>
+        `).join('')}
+      </tr>
+    `).join('')}
+    </tbody>
+  `;
+}
+
+function switchMetric(metric) {
+  selectedMetric = metric;
+  document.querySelectorAll('.metric-tab').forEach(t => t.classList.toggle('active', t.dataset.metric === metric));
+  buildMetricHeatmap(metric);
+  showMetricInfo(metric);
+}
+
+/* ════════════════════════════════════════════════════════════
+   CORRELATION MATRIX
+   ════════════════════════════════════════════════════════════ */
+function corrColor(v) {
+  const a = Math.min(Math.abs(v), 1) * 0.85;
+  if (v === 1) return isDark() ? '#2c2c2e' : '#f0f0f5';
+  return v > 0 ? `rgba(10,132,255,${a.toFixed(2)})` : `rgba(255,69,58,${a.toFixed(2)})`;
+}
+
+function buildCorrMatrix() {
+  const CORR = ALL_CORR[selectedRegime];
+  const short = ['Banks','DJIA','S&P500','Gold','Silver','Bonds','T-Bills'];
+  const table = document.getElementById('corrTable');
+  table.innerHTML = `
+    <thead><tr>
+      <th></th>
+      ${short.map(s=>`<th>${s}</th>`).join('')}
+    </tr></thead>
+    <tbody>
+    ${CORR.map((row, i) => `
+      <tr>
+        <td style="font-weight:600;font-size:11px;color:var(--text-2);padding-right:10px;white-space:nowrap">${short[i]}</td>
+        ${row.map((v, j) => {
+          const isDiag = (i === j);
+          const textColor = isDiag ? 'var(--text-2)' : (Math.abs(v) > 0.5 ? '#fff' : 'var(--text-1)');
+          return `<td><div class="corr-cell" style="background:${corrColor(v)};color:${textColor}">${v.toFixed(2)}</div></td>`;
+        }).join('')}
+      </tr>
+    `).join('')}
+    </tbody>
+  `;
+}
+
+/* ════════════════════════════════════════════════════════════
+   OPTIMIZE
+   ════════════════════════════════════════════════════════════ */
+function runOptimize() {
+  const btn = document.getElementById('optimizeBtn');
+  btn.classList.add('loading');
+  setTimeout(() => {
+    btn.classList.remove('loading');
+    buildAllocation(selectedRisk);
+    showToast(`${selectedRegime} optimizasyonu tamamlandı ✓`);
+    document.querySelector('.alloc-inner').scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }, 1400);
+}
+
+/* ════════════════════════════════════════════════════════════
+   CHART THEME UPDATE
+   ════════════════════════════════════════════════════════════ */
+function updateChartTheme() {
+  [priceChartRef, efChartRef].forEach(ch => {
+    if (!ch) return;
+    ['x','y'].forEach(ax => {
+      if (ch.options.scales[ax]) {
+        ch.options.scales[ax].grid && (ch.options.scales[ax].grid.color = gridColor());
+        ch.options.scales[ax].ticks.color = tickColor();
+        ch.options.scales[ax].title && (ch.options.scales[ax].title.color = tickColor());
+      }
+    });
+    if (ch.options.plugins.legend?.labels) ch.options.plugins.legend.labels.color = tickColor();
+    ch.update('none');
+  });
+  if (donutChartRef) {
+    donutChartRef.data.datasets[0].borderColor = donutBorder();
+    donutChartRef.update('none');
+  }
+  buildCorrMatrix();
+  buildMetricHeatmap(selectedMetric);
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   REGIME SWITCHER
+   ════════════════════════════════════════════════════════════ */
+function switchRegime(regime) {
+  selectedRegime = regime;
+  document.querySelectorAll('.regime-pill').forEach(p =>
+    p.classList.toggle('active', p.dataset.regime === regime)
+  );
+  updateModelInfo(regime);
+  buildEFChart();
+  buildRiskCards();
+  buildAllocation(selectedRisk);
+  buildCorrMatrix();
+  buildTransitionMatrix();
+  updateNextRegime();
+  // Update static labels
+  const lbl = document.querySelector('.btn-lbl');
+  if (lbl) lbl.textContent = `⚡ Run ${regime} Optimization`;
+  const corrTitle = document.getElementById('corrMatrixTitle');
+  if (corrTitle) corrTitle.textContent = `Correlation Matrix — ${regime} Regime`;
+  showToast(`${regime} rejimi seçildi ✓`);
+}
+
+function updateModelInfo(regime) {
+  const m = REGIME_META[regime];
+  const descMap = {
+    Goldilocks:  'Düşük enflasyon, ılımlı büyüme ortamı.',
+    Downturn:    'Büyüme yavaşlaması, risk azalışı ve savunmacı varlıklar öne çıkar.',
+    Stagflation: 'Yüksek enflasyon, düşük büyüme; emtialar ve değerli metaller baskın.',
+    Overheating: 'Yüksek büyüme ve enflasyon; tahvil getirileri artar, varlık karması değişir.',
+  };
+  const mDesc = document.querySelector('.model-desc');
+  if (mDesc) {
+    mDesc.innerHTML = `Seçilen piyasa rejimi: <strong>${regime}</strong> — ${descMap[regime]}
+      Optimizer, <strong>${m.days.toLocaleString()} işlem günü</strong> ${regime.toLowerCase()}-spesifik veri kullanarak
+      7 varlık üzerinde 30 noktalı etkin sınır hesaplar. Portföyler long-only ve tam yatırımlıdır (ağırlıklar toplamı %100).`;
+  }
+  const statVals = document.querySelectorAll('.model-stat-val');
+  if (statVals.length >= 2) {
+    statVals[0].textContent = m.days.toLocaleString();
+    statVals[1].textContent = m.coverage;
+  }
+  if (statVals.length >= 5) {
+    const minVarSharpe = ALL_EF_DATA[regime][0][9];
+    statVals[4].textContent = minVarSharpe.toFixed(3);
+  }
+  // Update section label color badge
+  const badge = document.getElementById('regimeBadge');
+  if (badge) {
+    badge.textContent = regime;
+    badge.style.background = m.color + '22';
+    badge.style.color = m.color;
+    badge.style.borderColor = m.color + '55';
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   TOAST
+   ════════════════════════════════════════════════════════════ */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+/* ════════════════════════════════════════════════════════════
+   NAV SCROLL
+   ════════════════════════════════════════════════════════════ */
+function scrollToSection(e, id) {
+  document.querySelectorAll('.nav-pill').forEach(p => p.classList.remove('active'));
+  e.currentTarget.classList.add('active');
+  if (id === 'top') {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    const el = document.getElementById(id);
+    if (el) {
+      const offset = 68; // header height + breathing room
+      const top = el.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
+  }
+}
+
+// Keep nav-pill active state in sync while scrolling
+(function() {
+  const pills = document.querySelectorAll('.nav-pill');
+  window.addEventListener('scroll', () => {
+    const y = window.scrollY;
+    if (y < 200) { pills.forEach(p=>p.classList.remove('active')); pills[0].classList.add('active'); return; }
+    let active = 0;
+    // Order: sentiment(1), transitions(2), risk(3), frontier(4)
+    [['section-transitions',1],['section-risk',2],['section-frontier',3]].forEach(([id, idx]) => {
+      const el = document.getElementById(id);
+      if (el && el.getBoundingClientRect().top <= 80) active = idx;
+    });
+    pills.forEach(p=>p.classList.remove('active'));
+    pills[active].classList.add('active');
+  }, { passive: true });
+})();
+
+/* ════════════════════════════════════════════════════════════
+   INIT
+   ════════════════════════════════════════════════════════════ */
+document.getElementById('themeToggle').textContent = isDark() ? '☀️' : '🌙';
+buildKPIs();
+buildTimeline();
+buildPriceChart();
+buildEFChart();
+buildTransitionMatrix();
+buildRegimeSequence();
+updateNextRegime();
+buildRiskCards();
+buildAllocation('atak');
+buildMetricHeatmap('sharpe');
+buildCorrMatrix();
+updateModelInfo('Goldilocks');
+// Init interactive features
+requestAnimationFrame(() => {
+  initCollapsibleCards();
+  makeDraggableGrid(document.getElementById('kpiGrid'));
+  makeDraggableGrid(document.getElementById('riskGrid'));
+  // Apply saved language (after all dynamic content is rendered)
+  const savedLang = localStorage.getItem('lang') || 'en';
+  if (savedLang !== 'en') applyLang(savedLang);
+  else applyLang('en'); // ensure toggle buttons reflect state
+});
+</script>
+</body>
+</html>
